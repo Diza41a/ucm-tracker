@@ -130,12 +130,12 @@ export default function StoryTagsScreen() {
         <Text style={styles.formTitle}>{editingId ? 'Edit tag' : 'New story tag'}</Text>
 
         <View style={styles.formFields}>
-          <FormField icon="text-outline" title="Name">
+          <FormField icon="text-outline" title="Name" required>
             <TextInput
               style={formStyles.input}
               value={name}
               onChangeText={setName}
-              placeholder="Tag name"
+              placeholder="e.g. Core belief"
               placeholderTextColor={colors.textSecondary}
             />
           </FormField>

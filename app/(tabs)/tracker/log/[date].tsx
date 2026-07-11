@@ -4,7 +4,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'reac
 import {
   Alert,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -13,7 +12,7 @@ import {
   View,
 } from 'react-native';
 
-import { CardBadge } from '@/src/components/CardBadge';
+import { CardPickerModal } from '@/src/components/CardPickerModal';
 import { CardPreviewModal } from '@/src/components/CardPreviewModal';
 import { RichTextEditor } from '@/src/components/RichTextEditor';
 import { StoryPickerModal } from '@/src/components/StoryPickerModal';
@@ -90,13 +89,11 @@ export default function DayLogScreen() {
       return;
     }
 
-    if (!logLoading && defaultTemplate) {
-      setContentHtml(defaultTemplate.content_html);
-      setBaselineContentHtml(defaultTemplate.content_html);
-      setTemplateId(defaultTemplate.id);
+    if (!logLoading) {
+      setBaselineContentHtml('');
       setInitialized(true);
     }
-  }, [existingLog, defaultTemplate, logLoading, initialized]);
+  }, [existingLog, logLoading, initialized]);
 
   const formattedDate = parseDateString(date).toLocaleDateString('en-US', {
     weekday: 'long',
@@ -104,6 +101,10 @@ export default function DayLogScreen() {
     day: 'numeric',
     year: 'numeric',
   });
+
+  const logDate = parseDateString(date);
+  const logYear = logDate.getFullYear();
+  const logMonth = logDate.getMonth() + 1;
 
   const saveLog = useCallback(
     async (overrides?: {
@@ -366,51 +367,23 @@ export default function DayLogScreen() {
         }}
       />
 
-      <Modal visible={showCardPicker} animationType="slide" presentationStyle="pageSheet">
-        <View style={styles.pickerContainer}>
-          <View style={styles.pickerHeader}>
-            <Text style={styles.pickerTitle}>Cards worked on</Text>
-            <Pressable onPress={() => setShowCardPicker(false)}>
-              <Ionicons name="close" size={28} color={colors.text} />
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={styles.pickerList}>
-            {!allCards?.length ? (
-              <InlineEmptyState
-                icon="albums-outline"
-                message="No cards yet. Create one to tag it on this log."
-                actionLabel="Create card"
-                onAction={() => {
-                  setShowCardPicker(false);
-                  router.push('/(tabs)/cards/new');
-                }}
-              />
-            ) : (
-              allCards.map((card) => {
-                const selected = cardIds.includes(card.id);
-                return (
-                  <Pressable
-                    key={card.id}
-                    style={[styles.pickerRow, selected && styles.pickerRowSelected]}
-                    onPress={() => toggleCard(card.id)}>
-                    <View style={styles.pickerCardInfo}>
-                      {card.card_type ? <CardBadge cardType={card.card_type} /> : null}
-                      <Text style={styles.pickerRowText} numberOfLines={2}>
-                        {card.action}
-                      </Text>
-                    </View>
-                    {selected ? (
-                      <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
-                    ) : (
-                      <Ionicons name="ellipse-outline" size={22} color={colors.textSecondary} />
-                    )}
-                  </Pressable>
-                );
-              })
-            )}
-          </ScrollView>
-        </View>
-      </Modal>
+      <CardPickerModal
+        visible={showCardPicker}
+        year={logYear}
+        month={logMonth}
+        allCards={allCards}
+        selectedIds={cardIds}
+        onClose={() => setShowCardPicker(false)}
+        onToggle={toggleCard}
+        onCreateCard={() => {
+          setShowCardPicker(false);
+          router.push('/(tabs)/cards/new');
+        }}
+        onManageMonthPool={() => {
+          setShowCardPicker(false);
+          router.push('/(tabs)/tracker');
+        }}
+      />
 
       <StoryPreviewModal
         story={previewStory}
@@ -464,53 +437,5 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 13,
     fontWeight: '500',
-  },
-  pickerContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.screenPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  pickerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  pickerList: {
-    padding: spacing.screenPadding,
-    gap: spacing.sm,
-  },
-  pickerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 10,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.sm,
-    gap: spacing.md,
-  },
-  pickerRowSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.selected,
-  },
-  pickerCardInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  pickerRowText: {
-    fontSize: 15,
-    color: colors.text,
-    fontWeight: '500',
-    flex: 1,
   },
 });

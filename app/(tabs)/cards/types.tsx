@@ -128,12 +128,12 @@ export default function CardTypesScreen() {
         <Text style={styles.formTitle}>{editingId ? 'Edit type' : 'New card type'}</Text>
 
         <View style={styles.formFields}>
-          <FormField icon="text-outline" title="Name">
+          <FormField icon="text-outline" title="Name" required>
             <TextInput
               style={formStyles.input}
               value={name}
               onChangeText={setName}
-              placeholder="Type name (e.g. Required)"
+              placeholder="e.g. Required"
               placeholderTextColor={colors.textSecondary}
             />
           </FormField>

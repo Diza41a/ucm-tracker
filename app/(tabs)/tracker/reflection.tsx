@@ -5,6 +5,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,10 +15,11 @@ import {
 import { RichTextEditor } from '@/src/components/RichTextEditor';
 import { ErrorState, LoadingState } from '@/src/components/StateViews';
 import { FormActionBar } from '@/src/components/ui/FormActionBar';
+import { FormField } from '@/src/components/ui/FormField';
 import { SaveButton } from '@/src/components/ui/SaveButton';
-import { DEFAULT_MONTHLY_REFLECTION_HTML } from '@/src/constants/defaultReflectionTemplate';
 import { colors, spacing } from '@/src/constants/theme';
 import { formStyles } from '@/src/constants/form';
+import { useLogTemplates } from '@/src/hooks/useLogTemplates';
 import {
   useMonthlyReflection,
   useUpsertMonthlyReflection,
@@ -32,6 +34,7 @@ export default function MonthlyReflectionScreen() {
   const month = Number(params.month);
 
   const { data: reflection, isLoading, error } = useMonthlyReflection(year, month);
+  const { data: templates, isLoading: templatesLoading } = useLogTemplates();
   const upsert = useUpsertMonthlyReflection();
 
   const [contentHtml, setContentHtml] = useState('');
@@ -45,15 +48,16 @@ export default function MonthlyReflectionScreen() {
 
     if (reflection) {
       setContentHtml(reflection.content_html);
-      setInitialized(true);
-      return;
     }
 
-    if (!isLoading) {
-      setContentHtml(DEFAULT_MONTHLY_REFLECTION_HTML);
-      setInitialized(true);
-    }
+    setInitialized(true);
   }, [reflection, isLoading, initialized]);
+
+  const applyTemplate = (templateId: string) => {
+    const template = templates?.find((t) => t.id === templateId);
+    if (!template) return;
+    setContentHtml(template.content_html);
+  };
 
   const handleSave = async () => {
     if (!unlocked) {
@@ -92,7 +96,7 @@ export default function MonthlyReflectionScreen() {
     );
   }
 
-  if (isLoading || !initialized) return <LoadingState />;
+  if (isLoading || templatesLoading || !initialized) return <LoadingState />;
   if (error) return <ErrorState message={error.message} />;
 
   return (
@@ -104,18 +108,33 @@ export default function MonthlyReflectionScreen() {
           Look back on the month — what you practiced, what shifted, and what you want to carry
           forward.
         </Text>
-        <RichTextEditor
-          value={contentHtml}
-          onChange={setContentHtml}
-          placeholder="Write your monthly reflection..."
-        />
-        <FormActionBar>
-          <SaveButton
-            onPress={handleSave}
-            loading={upsert.isPending}
-            disabled={!unlocked}
+
+        <FormField icon="create-outline" title="Reflection">
+          {templates && templates.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {templates.map((t) => (
+                <Pressable
+                  key={t.id}
+                  style={styles.templateChip}
+                  onPress={() => applyTemplate(t.id)}>
+                  <Text style={styles.templateChipText}>{t.name}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : null}
+          <RichTextEditor
+            value={contentHtml}
+            onChange={setContentHtml}
+            placeholder="Write your monthly reflection..."
           />
-        </FormActionBar>
+          <FormActionBar>
+            <SaveButton
+              onPress={handleSave}
+              loading={upsert.isPending}
+              disabled={!unlocked}
+            />
+          </FormActionBar>
+        </FormField>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -131,6 +150,21 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 20,
     marginBottom: spacing.md,
+  },
+  templateChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginRight: 8,
+    marginBottom: spacing.sm,
+  },
+  templateChipText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '500',
   },
   lockedContainer: {
     flex: 1,

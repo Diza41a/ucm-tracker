@@ -213,7 +213,7 @@ export default function CardDetailScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={formStyles.screenContent}>
-        <FormField icon="layers-outline" title="Card type">
+        <FormField icon="layers-outline" title="Card type" required>
           <View style={formStyles.chipRow}>
             {cardTypes?.map((type) => (
               <Pressable
@@ -230,7 +230,7 @@ export default function CardDetailScreen() {
           </View>
         </FormField>
 
-        <FormField icon="speedometer-outline" title="Difficulty (1-10)">
+        <FormField icon="speedometer-outline" title="Difficulty (1-10)" required>
           <NumberInput
             value={difficulty}
             onChangeText={setDifficulty}
@@ -240,13 +240,13 @@ export default function CardDetailScreen() {
           />
         </FormField>
 
-        <FormField icon="flash-outline" title="Action" hint={`${action.length}/100`}>
+        <FormField icon="flash-outline" title="Action" required hint={`${action.length}/100`}>
           <TextInput
             style={formStyles.input}
             value={action}
             onChangeText={setAction}
             maxLength={100}
-            placeholder="What to do"
+            placeholder="e.g. Ask a stranger for directions"
             placeholderTextColor={colors.textMuted}
           />
         </FormField>
@@ -258,6 +258,8 @@ export default function CardDetailScreen() {
             onChangeText={setFunctionPurpose}
             multiline
             textAlignVertical="top"
+            placeholder="Why this matters or what you're practicing"
+            placeholderTextColor={colors.textMuted}
           />
         </FormField>
 
@@ -266,7 +268,7 @@ export default function CardDetailScreen() {
             style={formStyles.input}
             value={practiceLocation}
             onChangeText={setPracticeLocation}
-            placeholder="Where to practice"
+            placeholder="e.g. Coffee shop, park bench"
             placeholderTextColor={colors.textMuted}
           />
         </FormField>

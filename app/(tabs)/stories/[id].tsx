@@ -155,13 +155,13 @@ export default function StoryDetailScreen() {
       <ScrollView contentContainerStyle={formStyles.screenContent}>
         {editing ? (
           <>
-            <FormField icon="bookmark-outline" title="Name" hint={`${name.length}/100`}>
+            <FormField icon="bookmark-outline" title="Name" required hint={`${name.length}/100`}>
               <TextInput
                 style={formStyles.input}
                 value={name}
                 onChangeText={setName}
                 maxLength={100}
-                placeholder="Story name"
+                placeholder="e.g. Fear of judgment"
                 placeholderTextColor={colors.textMuted}
               />
             </FormField>
@@ -171,7 +171,11 @@ export default function StoryDetailScreen() {
             </FormField>
 
             <FormField icon="document-text-outline" title="Notes">
-              <RichTextEditor value={notesHtml} onChange={setNotesHtml} />
+              <RichTextEditor
+                value={notesHtml}
+                onChange={setNotesHtml}
+                placeholder="Write story notes..."
+              />
             </FormField>
 
             <FormActionBar>

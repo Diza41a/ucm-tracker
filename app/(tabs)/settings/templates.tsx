@@ -19,7 +19,6 @@ import { FormField } from '@/src/components/ui/FormField';
 import { FormActionBar } from '@/src/components/ui/FormActionBar';
 import { IconButton } from '@/src/components/ui/IconButton';
 import { SaveButton } from '@/src/components/ui/SaveButton';
-import { DEFAULT_LOG_TEMPLATE_HTML } from '@/src/constants/defaultLogTemplate';
 import { colors, spacing } from '@/src/constants/theme';
 import { formStyles } from '@/src/constants/form';
 import {
@@ -60,7 +59,7 @@ export default function LogTemplatesScreen() {
   const startNew = useCallback(() => {
     setEditing(null);
     setName('');
-    setContentHtml(DEFAULT_LOG_TEMPLATE_HTML);
+    setContentHtml('');
     setIsDefault(false);
   }, []);
 
@@ -136,12 +135,13 @@ export default function LogTemplatesScreen() {
               <View style={styles.editorFields}>
                 <FormField
                   icon="document-text-outline"
-                  title={editing ? 'Edit template' : 'New template'}>
+                  title="Name"
+                  required>
                   <TextInput
                     style={formStyles.input}
                     value={name}
                     onChangeText={setName}
-                    placeholder="Template name"
+                    placeholder="e.g. Outing prep"
                     placeholderTextColor={colors.textSecondary}
                   />
                 </FormField>
@@ -158,7 +158,11 @@ export default function LogTemplatesScreen() {
                 </Pressable>
 
                 <FormField icon="create-outline" title="Template content">
-                  <RichTextEditor value={contentHtml} onChange={setContentHtml} />
+                  <RichTextEditor
+                    value={contentHtml}
+                    onChange={setContentHtml}
+                    placeholder="Write template content..."
+                  />
                 </FormField>
               </View>
 

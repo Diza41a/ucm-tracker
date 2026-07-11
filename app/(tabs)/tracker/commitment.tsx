@@ -124,7 +124,7 @@ export default function CommitmentScreen() {
             Once saved, this cannot be changed for the month.
           </Text>
 
-          <FormField icon="calendar-outline" title="Outings per week">
+          <FormField icon="calendar-outline" title="Outings per week" required>
             <NumberInput
               value={outingsPerWeek}
               onChangeText={setOutingsPerWeek}
@@ -133,7 +133,7 @@ export default function CommitmentScreen() {
             />
           </FormField>
 
-          <FormField icon="time-outline" title="Duration per outing">
+          <FormField icon="time-outline" title="Duration per outing" required>
             <NumberInput
               value={durationMinutes}
               onChangeText={setDurationMinutes}
