@@ -1,3 +1,4 @@
+import 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
 import {
   Inter_400Regular,
@@ -37,7 +38,10 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (error) throw error;
+    if (error) {
+      console.error('Font loading failed:', error);
+      SplashScreen.hideAsync();
+    }
   }, [error]);
 
   useEffect(() => {
@@ -46,7 +50,7 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  if (!loaded) {
+  if (!loaded && !error) {
     return null;
   }
 
