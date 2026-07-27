@@ -1,15 +1,30 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { RichTextEditorShell, type RichTextEditorLayout } from '@/src/components/RichTextEditorShell';
 import { RichTextEditorToolbar } from '@/src/components/RichTextEditorToolbar';
 import { RichTextLinkModal } from '@/src/components/RichTextLinkModal';
-import { richTextEditorStyles, type RichTextToolbarAction } from '@/src/constants/richTextEditor';
-import { colors, radii, typography } from '@/src/constants/theme';
+import {
+  richTextEditorHeights,
+  richTextEditorStyles,
+  type RichTextToolbarAction,
+} from '@/src/constants/richTextEditor';
+import { colors, typography } from '@/src/constants/theme';
+import { useRichTextEditorContent } from '@/src/hooks/useRichTextEditorContent';
+import { useRichTextEditorExpand } from '@/src/hooks/useRichTextEditorExpand';
+import {
+  buildLinkHtml,
+  captureEditorSelection,
+  getRangeText,
+  restoreEditorSelection,
+} from '@/src/utils/richTextSelection.web';
 
 interface RichTextEditorProps {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  footer?: React.ReactNode;
+  showFooterInline?: boolean;
 }
 
 function getSelectedText() {
@@ -29,15 +44,41 @@ function runCommand(action: Exclude<RichTextToolbarAction, 'link'>) {
   document.execCommand(action);
 }
 
-export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
+function seedEditorNode(node: HTMLDivElement, html: string, force = false) {
+  const nextHtml = html || '';
+  if (force || node.innerHTML !== nextHtml) {
+    node.innerHTML = nextHtml;
+  }
+}
+
+export function RichTextEditor({ value, onChange, placeholder, footer, showFooterInline }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [linkDefaultTitle, setLinkDefaultTitle] = useState('');
+  const { contentRef, editorHtml, commitHtml, externalSyncGeneration } =
+    useRichTextEditorContent(value, onChange);
+  const lastExternalSyncGeneration = useRef(externalSyncGeneration);
+  const savedSelectionRef = useRef<Range | null>(null);
 
-  const syncValue = useCallback(() => {
-    if (!editorRef.current) return;
-    onChange(editorRef.current.innerHTML);
-  }, [onChange]);
+  const readEditorHtml = useCallback(() => {
+    return editorRef.current?.innerHTML ?? contentRef.current;
+  }, [contentRef]);
+
+  const flushEditorContent = useCallback(() => {
+    commitHtml(readEditorHtml());
+  }, [commitHtml, readEditorHtml]);
+
+  const { expanded, setExpandedWithFlush, toggleExpand } = useRichTextEditorExpand(flushEditorContent);
+
+  const attachEditorRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      editorRef.current = node;
+      if (node) {
+        seedEditorNode(node, contentRef.current);
+      }
+    },
+    [contentRef]
+  );
 
   useEffect(() => {
     const styleId = 'rich-text-editor-placeholder-style';
@@ -65,106 +106,126 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
     }
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!editorRef.current) return;
-    if (editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value || '';
-    }
-  }, [value]);
+    const isExternalSync = externalSyncGeneration !== lastExternalSyncGeneration.current;
+    lastExternalSyncGeneration.current = externalSyncGeneration;
+    seedEditorNode(editorRef.current, editorHtml, isExternalSync);
+  }, [editorHtml, expanded, externalSyncGeneration]);
 
   const handleAction = (action: RichTextToolbarAction) => {
-    editorRef.current?.focus();
-
     if (action === 'link') {
-      setLinkDefaultTitle(getSelectedText());
+      savedSelectionRef.current = captureEditorSelection(editorRef.current);
+      setLinkDefaultTitle(getRangeText(savedSelectionRef.current) || getSelectedText());
       setShowLinkModal(true);
       return;
     }
 
+    editorRef.current?.focus();
+
     runCommand(action);
-    syncValue();
+    flushEditorContent();
   };
 
   const applyTextColor = (color: string) => {
     editorRef.current?.focus();
     document.execCommand('foreColor', false, color);
-    syncValue();
+    flushEditorContent();
   };
 
   const applyHighlightColor = (color: string) => {
     editorRef.current?.focus();
     if (color === 'transparent') {
       document.execCommand('hiliteColor', false, colors.surfaceElevated);
-      syncValue();
+      flushEditorContent();
       return;
     }
     document.execCommand('hiliteColor', false, color);
-    syncValue();
+    flushEditorContent();
   };
 
   const handleInsertLink = (title: string, url: string) => {
     editorRef.current?.focus();
+    restoreEditorSelection(savedSelectionRef.current);
+
     const selected = getSelectedText();
 
     if (selected) {
       document.execCommand('createLink', false, url);
     } else {
-      document.execCommand(
-        'insertHTML',
-        false,
-        `<a href="${url}" target="_blank" rel="noopener noreferrer">${title}</a>`
-      );
+      document.execCommand('insertHTML', false, buildLinkHtml(title, url));
     }
 
-    syncValue();
+    savedSelectionRef.current = null;
+    flushEditorContent();
+  };
+
+  const renderEditor = (layout: RichTextEditorLayout) => {
+    const isExpanded = layout === 'expanded';
+
+    return (
+      <>
+        <RichTextEditorToolbar
+          onAction={handleAction}
+          onTextColor={applyTextColor}
+          onHighlightColor={applyHighlightColor}
+          expanded={isExpanded}
+          onToggleExpand={toggleExpand}
+        />
+
+        <View style={isExpanded ? styles.editorExpandedWrap : undefined}>
+          <div
+            key={isExpanded ? 'expanded' : 'inline'}
+            ref={attachEditorRef}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={() => commitHtml(readEditorHtml())}
+            onBlur={flushEditorContent}
+            data-placeholder={placeholder ?? 'Write notes...'}
+            style={{
+              minHeight: isExpanded ? undefined : richTextEditorHeights.inlineMin,
+              maxHeight: isExpanded ? undefined : richTextEditorHeights.inlineMax,
+              height: isExpanded ? '100%' : undefined,
+              flex: isExpanded ? 1 : undefined,
+              overflowY: 'auto',
+              padding: 12,
+              fontSize: typography.editor.size,
+              lineHeight: typography.editor.lineHeight,
+              fontFamily: typography.editor.stack,
+              color: colors.text,
+              backgroundColor: colors.surfaceElevated,
+              outline: 'none',
+            }}
+          />
+        </View>
+
+        <RichTextLinkModal
+          visible={showLinkModal}
+          defaultTitle={linkDefaultTitle}
+          onClose={() => {
+            savedSelectionRef.current = null;
+            setShowLinkModal(false);
+          }}
+          onSubmit={handleInsertLink}
+        />
+      </>
+    );
   };
 
   return (
-    <View style={styles.container}>
-      <RichTextEditorToolbar
-        onAction={handleAction}
-        onTextColor={applyTextColor}
-        onHighlightColor={applyHighlightColor}
-      />
-
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={syncValue}
-        onBlur={syncValue}
-        data-placeholder={placeholder ?? 'Write notes...'}
-        style={{
-          minHeight: 180,
-          maxHeight: 300,
-          overflowY: 'auto',
-          padding: 12,
-          fontSize: typography.editor.size,
-          lineHeight: typography.editor.lineHeight,
-          fontFamily: typography.editor.stack,
-          color: colors.text,
-          backgroundColor: colors.surfaceElevated,
-          outline: 'none',
-        }}
-      />
-
-      <RichTextLinkModal
-        visible={showLinkModal}
-        defaultTitle={linkDefaultTitle}
-        onClose={() => setShowLinkModal(false)}
-        onSubmit={handleInsertLink}
-      />
-    </View>
+    <RichTextEditorShell
+      expanded={expanded}
+      onExpandedChange={setExpandedWithFlush}
+      footer={footer}
+      showFooterInline={showFooterInline}>
+      {renderEditor}
+    </RichTextEditorShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    overflow: 'hidden',
-    backgroundColor: colors.surfaceElevated,
-    minHeight: 200,
+  editorExpandedWrap: {
+    flex: 1,
+    minHeight: 0,
   },
 });

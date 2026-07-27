@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 
 import { colors, tabBarScreenOptions } from '@/src/constants/theme';
 import { TAB_BAR_BASE_HEIGHT } from '@/src/hooks/useSafeInsets';
+import { createTabPressToRootListener } from '@/src/utils/navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
@@ -15,6 +16,7 @@ export default function TabLayout() {
       safeAreaInsets={{ bottom: insets.bottom }}
       screenOptions={{
         ...tabBarScreenOptions,
+        lazy: false,
         tabBarStyle: {
           ...tabBarScreenOptions.tabBarStyle,
           height: TAB_BAR_BASE_HEIGHT + bottomInset,
@@ -33,6 +35,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="tracker"
+        listeners={createTabPressToRootListener('tracker')}
         options={{
           title: 'Tracker',
           headerShown: false,
@@ -43,6 +46,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="stories"
+        listeners={createTabPressToRootListener('stories')}
         options={{
           title: 'Stories',
           headerShown: false,
@@ -53,6 +57,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="cards"
+        listeners={createTabPressToRootListener('cards')}
         options={{
           title: 'Cards',
           headerShown: false,
@@ -62,7 +67,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="wins"
+        listeners={createTabPressToRootListener('wins')}
+        options={{
+          title: 'Wins',
+          headerShown: false,
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="trophy-outline" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
+        listeners={createTabPressToRootListener('settings')}
         options={{
           title: 'Settings',
           headerShown: false,

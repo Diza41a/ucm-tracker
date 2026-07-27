@@ -74,6 +74,23 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-forward" size={14} color={colors.primary} />
         </Pressable>
       </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionTitleRow}>
+          <Ionicons name="book-outline" size={18} color={colors.primary} />
+          <Text style={styles.sectionTitle}>User guide</Text>
+        </View>
+        <Text style={styles.hint}>
+          Read tips for using the app, or edit the guide to match your own workflow.
+        </Text>
+        <Pressable
+          style={styles.linkBtn}
+          onPress={() => router.push('/(tabs)/settings/user-guide')}>
+          <Ionicons name="help-circle-outline" size={16} color={colors.primary} />
+          <Text style={styles.linkText}>Open user guide</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }

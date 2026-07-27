@@ -71,14 +71,25 @@ export function useOutingLogsForMonth(year: number, month: number) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('outing_logs')
-        .select('*')
+        .select(
+          '*, outing_log_tasks(*), outing_log_cards(card_id), outing_log_stories(story_id)'
+        )
         .gte('log_date', startDate)
         .lt('log_date', endDate)
         .order('log_date');
       if (error) throw error;
-      return (data as OutingLog[]).map((log) => ({
+      return (
+        data as (OutingLog & {
+          outing_log_tasks?: OutingLog['tasks'];
+          outing_log_cards?: { card_id: string }[];
+          outing_log_stories?: { story_id: string }[];
+        })[]
+      ).map((log) => ({
         ...log,
         content_html: log.content_html ?? '',
+        tasks: (log.outing_log_tasks ?? []).sort((a, b) => a.sort_order - b.sort_order),
+        cards: (log.outing_log_cards ?? []).map((row) => ({ id: row.card_id }) as Card),
+        stories: (log.outing_log_stories ?? []).map((row) => ({ id: row.story_id }) as Story),
       }));
     },
     placeholderData: keepPreviousData,
@@ -86,6 +97,8 @@ export function useOutingLogsForMonth(year: number, month: number) {
 }
 
 export function useOutingLogByDate(date: string) {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: outingLogKeys.date(date),
     queryFn: async () => {
@@ -102,6 +115,14 @@ export function useOutingLogByDate(date: string) {
       } as OutingLog);
     },
     enabled: !!date,
+    placeholderData: () => {
+      if (!date) return undefined;
+      const parsed = new Date(`${date}T12:00:00`);
+      const monthLogs = queryClient.getQueryData<OutingLog[]>(
+        outingLogKeys.month(parsed.getFullYear(), parsed.getMonth() + 1)
+      );
+      return monthLogs?.find((log) => log.log_date === date);
+    },
   });
 }
 
@@ -204,6 +225,7 @@ export function useUpsertOutingLog() {
         updated_at: new Date().toISOString(),
         stories: previous?.stories,
         cards: previous?.cards,
+        tasks: previous?.tasks,
       };
 
       queryClient.setQueryData(outingLogKeys.date(input.log_date), optimistic);
@@ -230,10 +252,21 @@ export function useUpsertOutingLog() {
     onSettled: (data) => {
       if (!data) return;
       const date = new Date(data.log_date);
-      queryClient.invalidateQueries({
-        queryKey: outingLogKeys.month(date.getFullYear(), date.getMonth() + 1),
-      });
-      queryClient.invalidateQueries({ queryKey: outingLogKeys.date(data.log_date) });
+      queryClient.setQueryData(outingLogKeys.date(data.log_date), data);
+
+      const monthKey = outingLogKeys.month(date.getFullYear(), date.getMonth() + 1);
+      const monthLogs = queryClient.getQueryData<OutingLog[]>(monthKey);
+      if (monthLogs) {
+        queryClient.setQueryData(
+          monthKey,
+          monthLogs.some((log) => log.log_date === data.log_date)
+            ? monthLogs.map((log) => (log.log_date === data.log_date ? { ...log, ...data } : log))
+            : [...monthLogs, data]
+        );
+      } else {
+        queryClient.invalidateQueries({ queryKey: monthKey });
+      }
+
       queryClient.invalidateQueries({ queryKey: outingLogKeys.starred });
     },
   });

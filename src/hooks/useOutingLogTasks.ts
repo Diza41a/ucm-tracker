@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/src/lib/supabase';
-import type { OutingLogTask } from '@/src/types';
+import type { OutingLog, OutingLogTask } from '@/src/types';
 import { outingLogKeys } from '@/src/hooks/useOutingLogs';
 
 export const outingLogTaskKeys = {
@@ -97,12 +97,33 @@ export function useSaveOutingLogTasks() {
       }
 
       const date = new Date(variables.log_date);
-      queryClient.invalidateQueries({
-        queryKey: outingLogKeys.month(date.getFullYear(), date.getMonth() + 1),
-      });
-      queryClient.invalidateQueries({
-        queryKey: outingLogKeys.date(variables.log_date),
-      });
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const monthKey = outingLogKeys.month(year, month);
+      const monthLogs = queryClient.getQueryData<OutingLog[]>(monthKey);
+
+      if (monthLogs) {
+        const hasLog = monthLogs.some((log) => log.log_date === variables.log_date);
+        if (hasLog) {
+          queryClient.setQueryData(
+            monthKey,
+            monthLogs.map((log) =>
+              log.log_date === variables.log_date ? { ...log, tasks: data } : log
+            )
+          );
+        } else {
+          const dateLog = queryClient.getQueryData<OutingLog | null>(
+            outingLogKeys.date(variables.log_date)
+          );
+          if (dateLog) {
+            queryClient.setQueryData(monthKey, [...monthLogs, { ...dateLog, tasks: data }]);
+          } else {
+            queryClient.invalidateQueries({ queryKey: monthKey });
+          }
+        }
+      } else {
+        queryClient.invalidateQueries({ queryKey: monthKey });
+      }
     },
   });
 }
@@ -122,6 +143,30 @@ export function createTempTask(title = ''): OutingLogTask {
 
 export function tasksSnapshot(tasks: OutingLogTask[]) {
   return tasks
-    .map((task) => `${task.id}:${task.title}:${task.completed}`)
+    .filter((task) => task.title.trim().length > 0)
+    .map((task) => `${task.id}:${task.title.trim()}:${task.completed}`)
     .join('|');
 }
+
+function emptyDraftTasks(tasks: OutingLogTask[]) {
+  return tasks.filter((task) => task.title.trim().length === 0);
+}
+
+function mergeSavedWithDrafts(saved: OutingLogTask[], local: OutingLogTask[]) {
+  return [...saved, ...emptyDraftTasks(local)];
+}
+
+function shouldPersistTasks(nextTasks: OutingLogTask[], lastSavedSnapshot: string) {
+  const savableTasks = nextTasks.filter((task) => task.title.trim().length > 0);
+  const snapshot = tasksSnapshot(savableTasks);
+  if (snapshot === lastSavedSnapshot) return false;
+
+  // Empty draft rows must never wipe saved tasks on the server.
+  if (savableTasks.length === 0 && emptyDraftTasks(nextTasks).length > 0) {
+    return false;
+  }
+
+  return true;
+}
+
+export { emptyDraftTasks, mergeSavedWithDrafts, shouldPersistTasks };

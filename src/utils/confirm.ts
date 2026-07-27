@@ -1,4 +1,4 @@
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 export function confirmDestructive(
   title: string,
@@ -9,6 +9,13 @@ export function confirmDestructive(
     void Promise.resolve(onConfirm()).catch(() => {});
   };
 
+  if (Platform.OS === 'web') {
+    if (window.confirm([title, message].filter(Boolean).join('\n\n'))) {
+      runConfirm();
+    }
+    return;
+  }
+
   Alert.alert(title, message, [
     { text: 'Cancel', style: 'cancel' },
     { text: 'Delete', style: 'destructive', onPress: runConfirm },
@@ -16,5 +23,10 @@ export function confirmDestructive(
 }
 
 export function showAlert(title: string, message: string) {
+  if (Platform.OS === 'web') {
+    window.alert([title, message].filter(Boolean).join('\n\n'));
+    return;
+  }
+
   Alert.alert(title, message);
 }

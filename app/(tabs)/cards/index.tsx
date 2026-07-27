@@ -8,7 +8,7 @@ export default function CardsListScreen() {
   const { data: cards, isLoading, error, refetch } = useCards();
   const { data: cardTypes } = useCardTypes();
 
-  if (isLoading) return <LoadingState />;
+  if (isLoading && !cards) return <LoadingState />;
   if (error) return <ErrorState message={error.message} onRetry={() => refetch()} />;
 
   const emptyMessage = cards?.length

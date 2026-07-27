@@ -1,6 +1,6 @@
 import { ReactNode, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import {
   richTextHighlightColors,
@@ -13,6 +13,8 @@ interface RichTextEditorToolbarProps {
   onAction: (action: RichTextToolbarAction) => void;
   onTextColor: (color: string) => void;
   onHighlightColor: (color: string) => void;
+  expanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 type ToolbarIcon = keyof typeof Ionicons.glyphMap;
@@ -75,7 +77,14 @@ function ToolbarButton({
         active && styles.buttonActive,
         pressed && styles.buttonPressed,
       ]}
-      onPress={onPress}>
+      onPress={onPress}
+      {...(Platform.OS === 'web'
+        ? {
+            onMouseDown: (event) => {
+              event.preventDefault();
+            },
+          }
+        : undefined)}>
       {textLabel ? (
         <Text style={[styles.textButtonLabel, active && styles.textButtonLabelActive]}>
           {textLabel}
@@ -116,6 +125,8 @@ export function RichTextEditorToolbar({
   onAction,
   onTextColor,
   onHighlightColor,
+  expanded = false,
+  onToggleExpand,
 }: RichTextEditorToolbarProps) {
   const [showColors, setShowColors] = useState(false);
 
@@ -186,6 +197,16 @@ export function RichTextEditorToolbar({
           active={showColors}
           onPress={() => setShowColors((value) => !value)}
         />
+        {onToggleExpand ? (
+          <>
+            <ToolbarDivider />
+            <ToolbarButton
+              icon={expanded ? 'contract-outline' : 'expand-outline'}
+              label={expanded ? 'Minimize editor' : 'Maximize editor'}
+              onPress={onToggleExpand}
+            />
+          </>
+        ) : null}
       </ScrollView>
 
       {showColors ? (

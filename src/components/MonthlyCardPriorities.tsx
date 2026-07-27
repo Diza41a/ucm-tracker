@@ -23,7 +23,7 @@ import { MonthlyCardSelectionModal } from '@/src/components/MonthlyCardSelection
 import { InlineEmptyState } from '@/src/components/StateViews';
 import { CollapsibleFormField } from '@/src/components/ui/CollapsibleFormField';
 import { supportsNativeDragAndDrop } from '@/src/constants/platform';
-import { colors, radii, spacing } from '@/src/constants/theme';
+import { colors, radii, spacing, surfaceShadow } from '@/src/constants/theme';
 import { useCardTypes } from '@/src/hooks/useCardTypes';
 import { useCards, useToggleCardCompletedOnce } from '@/src/hooks/useCards';
 import {
@@ -371,8 +371,8 @@ const styles = StyleSheet.create({
   },
   cardRowActive: {
     zIndex: 10,
-    elevation: 12,
     overflow: 'visible',
+    ...surfaceShadow('lg'),
   },
   cardTile: {
     minHeight: 120,

@@ -16,6 +16,7 @@ import { CardPickerModal } from '@/src/components/CardPickerModal';
 import { CardPreviewModal } from '@/src/components/CardPreviewModal';
 import { OutingLogTasks } from '@/src/components/OutingLogTasks';
 import { RichTextEditor } from '@/src/components/RichTextEditor';
+import { RichTextReadView } from '@/src/components/RichTextReadView';
 import { StoryPickerModal } from '@/src/components/StoryPickerModal';
 import { StoryPreviewModal } from '@/src/components/StoryPreviewModal';
 import { InlineEmptyState, LoadingState } from '@/src/components/StateViews';
@@ -25,6 +26,7 @@ import { IconButton } from '@/src/components/ui/IconButton';
 import { RemovableCardChip } from '@/src/components/ui/RemovableCardChip';
 import { RemovablePill } from '@/src/components/ui/RemovablePill';
 import { SaveButton } from '@/src/components/ui/SaveButton';
+import { defaultViewEditMode, ViewEditSwitch, type ViewEditMode } from '@/src/components/ui/ViewEditSwitch';
 import { colors, spacing } from '@/src/constants/theme';
 import { formStyles } from '@/src/constants/form';
 import { useCards } from '@/src/hooks/useCards';
@@ -59,6 +61,7 @@ export default function DayLogScreen() {
   const [showCardPicker, setShowCardPicker] = useState(false);
   const [previewStory, setPreviewStory] = useState<Story | null>(null);
   const [previewCard, setPreviewCard] = useState<Card | null>(null);
+  const [editorMode, setEditorMode] = useState<ViewEditMode>('view');
 
   const defaultTemplate = templates?.find((t) => t.is_default) ?? templates?.[0];
 
@@ -82,6 +85,7 @@ export default function DayLogScreen() {
       setContentHtml(existingLog.content_html);
       setSavedContentHtml(existingLog.content_html);
       setBaselineContentHtml(existingLog.content_html);
+      setEditorMode(defaultViewEditMode(existingLog.content_html));
       setTemplateId(existingLog.template_id);
       setCompleted(existingLog.completed);
       setStarred(existingLog.starred);
@@ -93,6 +97,7 @@ export default function DayLogScreen() {
 
     if (!logLoading) {
       setBaselineContentHtml('');
+      setEditorMode('edit');
       setInitialized(true);
     }
   }, [existingLog, logLoading, initialized]);
@@ -133,8 +138,10 @@ export default function DayLogScreen() {
         if (overrides?.content_html !== undefined || overrides === undefined) {
           setSavedContentHtml(nextContent);
         }
+        return true;
       } catch (e) {
         Alert.alert('Error', e instanceof Error ? e.message : 'Failed to save');
+        return false;
       }
     },
     [
@@ -151,7 +158,10 @@ export default function DayLogScreen() {
   );
 
   const handleSaveLog = useCallback(async () => {
-    await saveLog();
+    const saved = await saveLog();
+    if (saved) {
+      setEditorMode('view');
+    }
   }, [saveLog]);
 
   const handleResetLog = useCallback(() => {
@@ -322,8 +332,13 @@ export default function DayLogScreen() {
           )}
         </FormField>
 
-        <FormField icon="create-outline" title="Log">
-          {templates && templates.length > 0 ? (
+        <FormField
+          icon="create-outline"
+          title="Log"
+          action={
+            <ViewEditSwitch mode={editorMode} onModeChange={setEditorMode} />
+          }>
+          {templates && templates.length > 0 && editorMode === 'edit' ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {templates.map((t) => (
                 <Pressable
@@ -335,25 +350,47 @@ export default function DayLogScreen() {
               ))}
             </ScrollView>
           ) : null}
-          <RichTextEditor
-            value={contentHtml}
-            onChange={setContentHtml}
-            placeholder="Write your outing log..."
-          />
-          <FormActionBar style={styles.logActionsBar}>
-            <IconButton
-              icon="refresh"
-              label="Reset"
-              variant="surface"
-              onPress={handleResetLog}
-              disabled={!isLogDirty}
+          {editorMode === 'view' ? (
+            <>
+              <RichTextReadView html={contentHtml} />
+              {isLogDirty ? (
+                <FormActionBar style={styles.logActionsBar}>
+                  <IconButton
+                    icon="refresh"
+                    label="Reset"
+                    variant="surface"
+                    onPress={handleResetLog}
+                  />
+                  <SaveButton
+                    onPress={handleSaveLog}
+                    loading={upsertLog.isPending}
+                  />
+                </FormActionBar>
+              ) : null}
+            </>
+          ) : (
+            <RichTextEditor
+              value={contentHtml}
+              onChange={setContentHtml}
+              placeholder="Write your outing log..."
+              footer={
+                <FormActionBar style={styles.logActionsBar}>
+                  <IconButton
+                    icon="refresh"
+                    label="Reset"
+                    variant="surface"
+                    onPress={handleResetLog}
+                    disabled={!isLogDirty}
+                  />
+                  <SaveButton
+                    onPress={handleSaveLog}
+                    loading={upsertLog.isPending}
+                    disabled={!isLogDirty}
+                  />
+                </FormActionBar>
+              }
             />
-            <SaveButton
-              onPress={handleSaveLog}
-              loading={upsertLog.isPending}
-              disabled={!isLogDirty}
-            />
-          </FormActionBar>
+          )}
         </FormField>
       </ScrollView>
 

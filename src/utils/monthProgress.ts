@@ -2,6 +2,7 @@ import { addDays } from 'date-fns';
 
 import type { MonthlyCommitment, OutingLog } from '@/src/types';
 import { parseDateString } from '@/src/utils/display';
+import { isOutingLogEmpty } from '@/src/utils/outingLogCalendar';
 import { getWeekKey } from '@/src/utils/weekCounter';
 
 export function getCommitmentCountingStartDate(commitment: MonthlyCommitment): Date {
@@ -27,7 +28,7 @@ export function countCompletedOutingsInMonth(
     : new Date(year, month - 1, 1);
 
   return logs.filter((log) => {
-    if (!log.completed) return false;
+    if (!log.completed || isOutingLogEmpty(log)) return false;
     const logDate = parseDateString(log.log_date);
     return (
       logDate.getFullYear() === year &&

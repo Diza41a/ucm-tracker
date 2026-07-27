@@ -14,6 +14,9 @@ export default function TrackerLayout() {
           title: 'Calendar Tracker',
           headerRight: () => (
             <View style={{ flexDirection: 'row', gap: 14, marginRight: 8 }}>
+              <Pressable onPress={() => router.push('/(tabs)/settings/user-guide')}>
+                <Ionicons name="help-circle-outline" size={24} color={colors.primary} />
+              </Pressable>
               <Pressable onPress={() => router.push('/(tabs)/tracker/starred')}>
                 <Ionicons name="star-outline" size={24} color={colors.star} />
               </Pressable>

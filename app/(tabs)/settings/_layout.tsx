@@ -7,6 +7,7 @@ export default function SettingsLayout() {
     <Stack screenOptions={stackScreenOptions}>
       <Stack.Screen name="index" options={{ title: 'Settings' }} />
       <Stack.Screen name="templates" options={{ ...subScreenOptions, title: 'Log Templates' }} />
+      <Stack.Screen name="user-guide" options={{ ...subScreenOptions, title: 'User Guide' }} />
     </Stack>
   );
 }

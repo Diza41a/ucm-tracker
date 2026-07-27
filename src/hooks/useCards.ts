@@ -71,7 +71,6 @@ export function useCards() {
   return useQuery({
     queryKey: cardKeys.all,
     queryFn: fetchCardsWithRelations,
-    refetchOnMount: 'always',
   });
 }
 

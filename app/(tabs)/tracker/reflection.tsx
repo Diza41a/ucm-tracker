@@ -13,10 +13,12 @@ import {
 } from 'react-native';
 
 import { RichTextEditor } from '@/src/components/RichTextEditor';
+import { RichTextReadView } from '@/src/components/RichTextReadView';
 import { ErrorState, LoadingState } from '@/src/components/StateViews';
 import { FormActionBar } from '@/src/components/ui/FormActionBar';
 import { FormField } from '@/src/components/ui/FormField';
 import { SaveButton } from '@/src/components/ui/SaveButton';
+import { defaultViewEditMode, ViewEditSwitch, type ViewEditMode } from '@/src/components/ui/ViewEditSwitch';
 import { colors, spacing } from '@/src/constants/theme';
 import { formStyles } from '@/src/constants/form';
 import { useLogTemplates } from '@/src/hooks/useLogTemplates';
@@ -39,6 +41,7 @@ export default function MonthlyReflectionScreen() {
 
   const [contentHtml, setContentHtml] = useState('');
   const [initialized, setInitialized] = useState(false);
+  const [editorMode, setEditorMode] = useState<ViewEditMode>('view');
 
   const unlocked = isReflectionUnlocked(year, month);
   const validParams = Number.isFinite(year) && Number.isFinite(month) && month >= 1 && month <= 12;
@@ -48,6 +51,7 @@ export default function MonthlyReflectionScreen() {
 
     if (reflection) {
       setContentHtml(reflection.content_html);
+      setEditorMode(defaultViewEditMode(reflection.content_html));
     }
 
     setInitialized(true);
@@ -67,6 +71,7 @@ export default function MonthlyReflectionScreen() {
 
     try {
       await upsert.mutateAsync({ year, month, content_html: contentHtml });
+      setEditorMode('view');
       Alert.alert('Saved', 'Monthly reflection updated.');
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'Failed to save');
@@ -109,8 +114,13 @@ export default function MonthlyReflectionScreen() {
           forward.
         </Text>
 
-        <FormField icon="create-outline" title="Reflection">
-          {templates && templates.length > 0 ? (
+        <FormField
+          icon="create-outline"
+          title="Reflection"
+          action={
+            <ViewEditSwitch mode={editorMode} onModeChange={setEditorMode} />
+          }>
+          {templates && templates.length > 0 && editorMode === 'edit' ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {templates.map((t) => (
                 <Pressable
@@ -122,18 +132,24 @@ export default function MonthlyReflectionScreen() {
               ))}
             </ScrollView>
           ) : null}
-          <RichTextEditor
-            value={contentHtml}
-            onChange={setContentHtml}
-            placeholder="Write your monthly reflection..."
-          />
-          <FormActionBar>
-            <SaveButton
-              onPress={handleSave}
-              loading={upsert.isPending}
-              disabled={!unlocked}
+          {editorMode === 'view' ? (
+            <RichTextReadView html={contentHtml} />
+          ) : (
+            <RichTextEditor
+              value={contentHtml}
+              onChange={setContentHtml}
+              placeholder="Write your monthly reflection..."
+              footer={
+                <FormActionBar>
+                  <SaveButton
+                    onPress={handleSave}
+                    loading={upsert.isPending}
+                    disabled={!unlocked}
+                  />
+                </FormActionBar>
+              }
             />
-          </FormActionBar>
+          )}
         </FormField>
       </ScrollView>
     </KeyboardAvoidingView>

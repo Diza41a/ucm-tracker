@@ -19,6 +19,8 @@ import {
   getMonthlyProgressFromCommitment,
 } from '@/src/utils/monthProgress';
 import { toDateString } from '@/src/utils/display';
+import { getOutingLogCalendarDots } from '@/src/utils/outingLogCalendar';
+import { renderCalendarNavigationArrow } from '@/src/utils/calendarNavigation';
 import { countCompletedOutingsInWeek } from '@/src/utils/weekCounter';
 
 export default function TrackerScreen() {
@@ -33,6 +35,7 @@ export default function TrackerScreen() {
   const calendarMonth = `${year}-${String(month).padStart(2, '0')}-01`;
 
   const markedDates = useMemo(() => {
+    const today = toDateString(new Date());
     const marks: Record<
       string,
       {
@@ -43,10 +46,8 @@ export default function TrackerScreen() {
     > = {};
 
     logs?.forEach((log) => {
-      const dots: { key: string; color: string }[] = [];
-      if (log.completed) dots.push({ key: 'completed', color: colors.completed });
-      else dots.push({ key: 'started', color: colors.inProgress });
-      if (log.starred) dots.push({ key: 'starred', color: colors.star });
+      const dots = getOutingLogCalendarDots(log, today);
+      if (dots.length === 0) return;
       marks[log.log_date] = { dots };
     });
 
@@ -127,16 +128,21 @@ export default function TrackerScreen() {
         markingType="multi-dot"
         theme={calendarTheme}
         style={styles.calendar}
+        renderArrow={renderCalendarNavigationArrow}
       />
 
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <Ionicons name="checkmark-circle" size={14} color={colors.completed} />
-          <Text style={styles.legendText}>Completed</Text>
+          <Text style={styles.legendText}>Done</Text>
         </View>
         <View style={styles.legendItem}>
-          <Ionicons name="ellipse-outline" size={14} color={colors.inProgress} />
-          <Text style={styles.legendText}>In progress</Text>
+          <Ionicons name="ellipse-outline" size={14} color={colors.warning} />
+          <Text style={styles.legendText}>Open</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <Ionicons name="ellipse-outline" size={14} color={colors.danger} />
+          <Text style={styles.legendText}>Overdue</Text>
         </View>
         <View style={styles.legendItem}>
           <Ionicons name="star" size={14} color={colors.star} />

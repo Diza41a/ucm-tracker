@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -15,9 +16,10 @@ import { InlineEmptyState } from '@/src/components/StateViews';
 import { supportsNativeDragAndDrop } from '@/src/constants/platform';
 import { FormField } from '@/src/components/ui/FormField';
 import { colors, radii, spacing } from '@/src/constants/theme';
-import { formStyles } from '@/src/constants/form';
 import {
   createTempTask,
+  mergeSavedWithDrafts,
+  shouldPersistTasks,
   tasksSnapshot,
   useSaveOutingLogTasks,
 } from '@/src/hooks/useOutingLogTasks';
@@ -39,71 +41,83 @@ export function OutingLogTasks({
 }: OutingLogTasksProps) {
   const saveTasks = useSaveOutingLogTasks();
   const [tasks, setTasks] = useState<OutingLogTask[]>([]);
+  const [focusTaskId, setFocusTaskId] = useState<string | null>(null);
   const lastSavedSnapshot = useRef('');
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHydrating = useRef(false);
+  const isDirty = useRef(false);
+  const isMounted = useRef(true);
   const loadedDate = useRef<string | null>(null);
 
-  useEffect(() => {
-    const fromServer = serverTasks ?? [];
-    const snapshot = tasksSnapshot(fromServer);
+  const applyServerTasks = useCallback((fromServer: OutingLogTask[]) => {
+    isHydrating.current = true;
+    lastSavedSnapshot.current = tasksSnapshot(fromServer);
+    setTasks(fromServer);
 
-    if (loadedDate.current !== logDate) {
-      isHydrating.current = true;
-      lastSavedSnapshot.current = snapshot;
-      setTasks(fromServer);
-      loadedDate.current = logDate;
-
-      const frame = requestAnimationFrame(() => {
-        isHydrating.current = false;
-      });
-      return () => cancelAnimationFrame(frame);
-    }
-
-    if (lastSavedSnapshot.current === '' && snapshot !== '') {
-      isHydrating.current = true;
-      lastSavedSnapshot.current = snapshot;
-      setTasks(fromServer);
-
-      const frame = requestAnimationFrame(() => {
-        isHydrating.current = false;
-      });
-      return () => cancelAnimationFrame(frame);
-    }
-  }, [logDate, serverTasks]);
+    const frame = requestAnimationFrame(() => {
+      isHydrating.current = false;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   useEffect(() => {
+    isMounted.current = true;
     return () => {
+      isMounted.current = false;
       if (saveTimeout.current) {
         clearTimeout(saveTimeout.current);
+        saveTimeout.current = null;
       }
     };
   }, []);
 
+  useEffect(() => {
+    const fromServer = serverTasks ?? [];
+    const serverSnapshot = tasksSnapshot(fromServer);
+
+    if (loadedDate.current !== logDate) {
+      loadedDate.current = logDate;
+      isDirty.current = false;
+      return applyServerTasks(fromServer);
+    }
+
+    if (isDirty.current) return;
+
+    if (serverSnapshot !== lastSavedSnapshot.current) {
+      return applyServerTasks(fromServer);
+    }
+  }, [applyServerTasks, logDate, serverTasks]);
+
   const persist = useCallback(
     (nextTasks: OutingLogTask[]) => {
-      const snapshot = tasksSnapshot(nextTasks);
-      if (snapshot === lastSavedSnapshot.current) return;
+      if (!shouldPersistTasks(nextTasks, lastSavedSnapshot.current)) return;
+
+      const savableTasks = nextTasks.filter((task) => task.title.trim().length > 0);
+      const snapshot = tasksSnapshot(savableTasks);
 
       if (saveTimeout.current) {
         clearTimeout(saveTimeout.current);
       }
 
       saveTimeout.current = setTimeout(async () => {
-        if (snapshot === lastSavedSnapshot.current) return;
+        if (!isMounted.current) return;
+        if (!shouldPersistTasks(nextTasks, lastSavedSnapshot.current)) return;
 
         try {
           const saved = await saveTasks.mutateAsync({
             log_date: logDate,
             template_id: defaultTemplateId,
-            tasks: nextTasks.map((task, index) => ({
+            tasks: savableTasks.map((task, index) => ({
               title: task.title,
               completed: task.completed,
               sort_order: index,
             })),
           });
+          if (!isMounted.current) return;
+
           lastSavedSnapshot.current = tasksSnapshot(saved);
-          setTasks(saved);
+          isDirty.current = false;
+          setTasks((current) => mergeSavedWithDrafts(saved, current));
           loadedDate.current = logDate;
         } catch (e) {
           Alert.alert('Error', e instanceof Error ? e.message : 'Failed to save tasks');
@@ -115,6 +129,7 @@ export function OutingLogTasks({
 
   const updateTasks = useCallback(
     (nextTasks: OutingLogTask[]) => {
+      isDirty.current = true;
       setTasks(nextTasks);
       if (!isHydrating.current) {
         persist(nextTasks);
@@ -124,7 +139,9 @@ export function OutingLogTasks({
   );
 
   const addTask = () => {
-    updateTasks([...tasks, createTempTask()]);
+    const task = createTempTask();
+    setFocusTaskId(task.id);
+    updateTasks([...tasks, task]);
   };
 
   const updateTask = (taskId: string, patch: Partial<Pick<OutingLogTask, 'title' | 'completed'>>) => {
@@ -191,7 +208,14 @@ export function OutingLogTasks({
           onChangeText={(title) => updateTask(item.id, { title })}
           placeholder="Add a task..."
           placeholderTextColor={colors.textMuted}
-          multiline
+          returnKeyType="done"
+          blurOnSubmit
+          autoFocus={item.id === focusTaskId}
+          onFocus={() => {
+            if (item.id === focusTaskId) {
+              setFocusTaskId(null);
+            }
+          }}
         />
         <Pressable onPress={() => removeTask(item.id)} hitSlop={8}>
           <Ionicons name="close-circle-outline" size={22} color={colors.danger} />
@@ -268,8 +292,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingVertical: 6,
     marginBottom: spacing.sm,
+    minHeight: 44,
   },
   taskRowActive: {
     borderColor: colors.primary,
@@ -293,11 +318,19 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   taskInput: {
-    ...formStyles.input,
     flex: 1,
-    minHeight: 40,
-    paddingVertical: 8,
+    height: 32,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 0,
     fontSize: 15,
+    lineHeight: 20,
+    color: colors.text,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    ...(Platform.OS === 'android' ? { includeFontPadding: false, textAlignVertical: 'center' } : {}),
+    ...(Platform.OS === 'web'
+      ? ({ outlineStyle: 'none', lineHeight: '20px', margin: 0 } as object)
+      : {}),
   },
   taskInputCompleted: {
     color: colors.textMuted,

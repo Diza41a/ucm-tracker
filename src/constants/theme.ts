@@ -1,3 +1,5 @@
+import { Platform, type ViewStyle } from 'react-native';
+
 export const colors = {
   primary: '#7C83FF',
   primaryLight: '#A5AAFF',
@@ -93,3 +95,43 @@ export const calendarTheme = {
   arrowColor: colors.primary,
   dotColor: colors.primary,
 };
+
+/** Cross-platform elevation; uses boxShadow on web instead of deprecated shadow* props. */
+export function surfaceShadow(
+  level: 'sm' | 'md' | 'lg' = 'md'
+): ViewStyle {
+  if (Platform.OS === 'web') {
+    const boxShadow =
+      level === 'sm'
+        ? '0 2px 8px rgba(0, 0, 0, 0.15)'
+        : level === 'lg'
+          ? '0 4px 12px rgba(0, 0, 0, 0.2)'
+          : '0 8px 16px rgba(0, 0, 0, 0.25)';
+    return { boxShadow };
+  }
+
+  if (Platform.OS === 'android') {
+    return { elevation: level === 'sm' ? 4 : level === 'lg' ? 12 : 8 };
+  }
+
+  return level === 'sm'
+    ? {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      }
+    : level === 'lg'
+      ? {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 12,
+        }
+      : {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.25,
+          shadowRadius: 16,
+        };
+}

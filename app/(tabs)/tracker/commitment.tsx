@@ -8,7 +8,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useNavigation, router } from 'expo-router';
+import { useNavigation } from 'expo-router';
+import { navigateBack } from '@/src/utils/navigation';
 
 import { MonthPicker } from '@/src/components/MonthPicker';
 import { LoadingState } from '@/src/components/StateViews';
@@ -70,7 +71,7 @@ export default function CommitmentScreen() {
         });
 
         if (goBack) {
-          router.back();
+          navigateBack(navigation, '/(tabs)/tracker');
           return;
         }
 
@@ -81,7 +82,7 @@ export default function CommitmentScreen() {
         Alert.alert('Error', e instanceof Error ? e.message : 'Failed to save');
       }
     },
-    [createCommitment, durationMinutes, isLocked, month, outingsPerWeek, year]
+    [createCommitment, durationMinutes, isLocked, month, navigation, outingsPerWeek, year]
   );
 
   useLayoutEffect(() => {

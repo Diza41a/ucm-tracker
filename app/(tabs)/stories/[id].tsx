@@ -78,13 +78,13 @@ export default function StoryDetailScreen() {
 
   const closeForm = useCallback(() => {
     if (isNew) {
-      navigateBack('/(tabs)/stories');
+      navigateBack(navigation, '/(tabs)/stories');
       return;
     }
 
     resetFormFromStory();
     setFormVisible(false);
-  }, [isNew, resetFormFromStory]);
+  }, [isNew, navigation, resetFormFromStory]);
 
   const handleSave = useCallback(async () => {
     if (!name.trim()) {
@@ -140,14 +140,14 @@ export default function StoryDetailScreen() {
         async () => {
           try {
             await deleteStory.mutateAsync(id);
-            navigateBack('/(tabs)/stories');
+            navigateBack(navigation, '/(tabs)/stories');
           } catch (e) {
             Alert.alert('Error', e instanceof Error ? e.message : 'Failed to delete');
           }
         }
       );
     })();
-  }, [deleteStory, id]);
+  }, [deleteStory, id, navigation]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -180,7 +180,7 @@ export default function StoryDetailScreen() {
               <StoryTagList tags={story.story_tags} />
             </View>
           ) : null}
-          <HtmlContent html={story?.notes_html ?? notesHtml} />
+          <HtmlContent html={story?.notes_html ?? ''} />
         </ScrollView>
       ) : null}
 
@@ -223,6 +223,13 @@ export default function StoryDetailScreen() {
                   value={notesHtml}
                   onChange={setNotesHtml}
                   placeholder="Write story notes..."
+                  showFooterInline={false}
+                  footer={
+                    <FormActionBar style={styles.sheetActions}>
+                      <IconButton icon="close" label="Cancel" onPress={closeForm} variant="surface" />
+                      <SaveButton onPress={handleSave} loading={isSaving} label={isNew ? 'Create' : 'Save'} />
+                    </FormActionBar>
+                  }
                 />
               </FormField>
             </ScrollView>

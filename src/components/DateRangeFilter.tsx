@@ -4,6 +4,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Calendar, type DateData } from 'react-native-calendars';
 
 import { colors, calendarTheme, radii, spacing } from '@/src/constants/theme';
+import { renderCalendarNavigationArrow } from '@/src/utils/calendarNavigation';
 import { parseDateString } from '@/src/utils/display';
 
 interface DateRangeFilterProps {
@@ -134,6 +135,7 @@ export function DateRangeFilter({
               }
               theme={calendarTheme}
               enableSwipeMonths
+              renderArrow={renderCalendarNavigationArrow}
             />
           </Pressable>
         </Pressable>

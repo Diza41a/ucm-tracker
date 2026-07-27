@@ -48,3 +48,8 @@ export const richTextEditorStyles = `
     padding: 0 2px;
   }
 `;
+
+export const richTextEditorHeights = {
+  inlineMin: 180,
+  inlineMax: 300,
+} as const;

@@ -46,7 +46,7 @@ export default function StoriesListScreen() {
     return result;
   }, [stories, search, filterTagId]);
 
-  if (isLoading) return <LoadingState />;
+  if (isLoading && !stories) return <LoadingState />;
   if (error) return <ErrorState message={error.message} onRetry={() => refetch()} />;
 
   const listHeader = (

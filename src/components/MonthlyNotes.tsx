@@ -9,10 +9,12 @@ import {
 } from 'react-native';
 
 import { RichTextEditor } from '@/src/components/RichTextEditor';
+import { RichTextReadView } from '@/src/components/RichTextReadView';
 import { FormField } from '@/src/components/ui/FormField';
 import { FormActionBar } from '@/src/components/ui/FormActionBar';
 import { IconButton } from '@/src/components/ui/IconButton';
 import { SaveButton } from '@/src/components/ui/SaveButton';
+import { defaultViewEditMode, ViewEditSwitch, type ViewEditMode } from '@/src/components/ui/ViewEditSwitch';
 import { colors, radii, spacing } from '@/src/constants/theme';
 import { useLogTemplates } from '@/src/hooks/useLogTemplates';
 import { useMonthlyNotes, useUpsertMonthlyNotes } from '@/src/hooks/useMonthlyNotes';
@@ -29,6 +31,7 @@ export function MonthlyNotes({ year, month }: MonthlyNotesProps) {
 
   const [contentHtml, setContentHtml] = useState('');
   const [savedContentHtml, setSavedContentHtml] = useState('');
+  const [editorMode, setEditorMode] = useState<ViewEditMode>('view');
   const loadedMonthKey = useRef<string | null>(null);
 
   const isDirty = contentHtml !== savedContentHtml;
@@ -44,6 +47,7 @@ export function MonthlyNotes({ year, month }: MonthlyNotesProps) {
 
     setContentHtml(fromServer);
     setSavedContentHtml(fromServer);
+    setEditorMode(defaultViewEditMode(fromServer));
     loadedMonthKey.current = monthKey;
   }, [isFetched, notes, year, month]);
 
@@ -53,6 +57,7 @@ export function MonthlyNotes({ year, month }: MonthlyNotesProps) {
     try {
       await upsertNotes.mutateAsync({ year, month, content_html: contentHtml });
       setSavedContentHtml(contentHtml);
+      setEditorMode('view');
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'Failed to save notes');
     }
@@ -71,8 +76,13 @@ export function MonthlyNotes({ year, month }: MonthlyNotesProps) {
 
   return (
     <View style={styles.section}>
-      <FormField icon="document-text-outline" title="Monthly notes">
-        {templates && templates.length > 0 ? (
+      <FormField
+        icon="document-text-outline"
+        title="Monthly notes"
+        action={
+          <ViewEditSwitch mode={editorMode} onModeChange={setEditorMode} />
+        }>
+        {templates && templates.length > 0 && editorMode === 'edit' ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {templates.map((template) => (
               <Pressable
@@ -84,26 +94,48 @@ export function MonthlyNotes({ year, month }: MonthlyNotesProps) {
             ))}
           </ScrollView>
         ) : null}
-        <RichTextEditor
-          key={`${year}-${month}`}
-          value={contentHtml}
-          onChange={setContentHtml}
-          placeholder="Monthly intentions, reminders, focus areas..."
-        />
-        {isDirty ? (
-          <FormActionBar style={styles.actionsBar}>
-            <IconButton
-              icon="refresh"
-              label="Reset"
-              variant="surface"
-              onPress={handleReset}
-            />
-            <SaveButton
-              onPress={handleSave}
-              loading={upsertNotes.isPending}
-            />
-          </FormActionBar>
-        ) : null}
+        {editorMode === 'view' ? (
+          <>
+            <RichTextReadView html={contentHtml} />
+            {isDirty ? (
+              <FormActionBar style={styles.actionsBar}>
+                <IconButton
+                  icon="refresh"
+                  label="Reset"
+                  variant="surface"
+                  onPress={handleReset}
+                />
+                <SaveButton
+                  onPress={handleSave}
+                  loading={upsertNotes.isPending}
+                />
+              </FormActionBar>
+            ) : null}
+          </>
+        ) : (
+          <RichTextEditor
+            key={`${year}-${month}`}
+            value={contentHtml}
+            onChange={setContentHtml}
+            placeholder="Monthly intentions, reminders, focus areas..."
+            footer={
+              isDirty ? (
+                <FormActionBar style={styles.actionsBar}>
+                  <IconButton
+                    icon="refresh"
+                    label="Reset"
+                    variant="surface"
+                    onPress={handleReset}
+                  />
+                  <SaveButton
+                    onPress={handleSave}
+                    loading={upsertNotes.isPending}
+                  />
+                </FormActionBar>
+              ) : null
+            }
+          />
+        )}
       </FormField>
     </View>
   );

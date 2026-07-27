@@ -126,6 +126,24 @@ export interface MonthlyNotes {
   updated_at: string;
 }
 
+export interface DailyWin {
+  id: string;
+  user_id: string;
+  win_date: string;
+  content: string;
+  starred: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserGuide {
+  id: string;
+  user_id: string;
+  content_html: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Profile {
   id: string;
   email: string | null;

@@ -15,11 +15,13 @@ import {
 
 import { CardSubcategoryPicker } from '@/src/components/CardSubcategoryPicker';
 import { RichTextEditor } from '@/src/components/RichTextEditor';
+import { RichTextReadView } from '@/src/components/RichTextReadView';
 import { StorySelector } from '@/src/components/StorySelector';
 import { ErrorState, InlineEmptyState, LoadingState } from '@/src/components/StateViews';
 import { FormField } from '@/src/components/ui/FormField';
 import { FormActionBar } from '@/src/components/ui/FormActionBar';
 import { SaveButton } from '@/src/components/ui/SaveButton';
+import { defaultViewEditMode, ViewEditSwitch, type ViewEditMode } from '@/src/components/ui/ViewEditSwitch';
 import { NumberInput } from '@/src/components/ui/NumberInput';
 import { colors, spacing } from '@/src/constants/theme';
 import { formStyles } from '@/src/constants/form';
@@ -32,6 +34,7 @@ import {
   useUpdateCard,
 } from '@/src/hooks/useCards';
 import { useStories } from '@/src/hooks/useStories';
+import { navigateBack } from '@/src/utils/navigation';
 
 export default function CardDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,6 +54,7 @@ export default function CardDetailScreen() {
   const [action, setAction] = useState('');
   const [functionPurpose, setFunctionPurpose] = useState('');
   const [notesHtml, setNotesHtml] = useState('');
+  const [notesMode, setNotesMode] = useState<ViewEditMode>('edit');
   const [selectedStoryIds, setSelectedStoryIds] = useState<string[]>([]);
   const [selectedSubcategoryIds, setSelectedSubcategoryIds] = useState<string[]>([]);
   const [completedOnce, setCompletedOnce] = useState(false);
@@ -64,6 +68,7 @@ export default function CardDetailScreen() {
       setAction(card.action);
       setFunctionPurpose(card.function_purpose);
       setNotesHtml(card.practice_location_ideas ?? '');
+      setNotesMode(defaultViewEditMode(card.practice_location_ideas ?? ''));
       setSelectedStoryIds(card.stories?.map((s) => s.id) ?? []);
       setSelectedSubcategoryIds(card.subcategories?.map((subcategory) => subcategory.id) ?? []);
       setCompletedOnce(card.completed_once ?? false);
@@ -131,7 +136,7 @@ export default function CardDetailScreen() {
         router.replace(`/(tabs)/cards/${created.id}`);
       } else {
         await updateCard.mutateAsync({ id, ...payload });
-        router.back();
+        navigateBack(navigation, '/(tabs)/cards');
       }
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'Failed to save');
@@ -155,7 +160,7 @@ export default function CardDetailScreen() {
         onPress: async () => {
           try {
             await deleteCard.mutateAsync(id);
-            router.back();
+            navigateBack(navigation, '/(tabs)/cards');
           } catch (e) {
             Alert.alert('Error', e instanceof Error ? e.message : 'Failed to delete');
           }
@@ -268,12 +273,23 @@ export default function CardDetailScreen() {
           />
         </FormField>
 
-        <FormField icon="document-text-outline" title="Notes">
-          <RichTextEditor
-            value={notesHtml}
-            onChange={setNotesHtml}
-            placeholder="Practice locations, reminders, variations..."
-          />
+        <FormField
+          icon="document-text-outline"
+          title="Notes"
+          action={
+            !isNew ? (
+              <ViewEditSwitch mode={notesMode} onModeChange={setNotesMode} />
+            ) : null
+          }>
+          {!isNew && notesMode === 'view' ? (
+            <RichTextReadView html={notesHtml} emptyMessage="No notes yet. Switch to Edit to add some." />
+          ) : (
+            <RichTextEditor
+              value={notesHtml}
+              onChange={setNotesHtml}
+              placeholder="Practice locations, reminders, variations..."
+            />
+          )}
         </FormField>
 
         <FormField icon="albums-outline" title="Subcategories">

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radii, spacing } from '@/src/constants/theme';
+import { colors, radii, spacing, surfaceShadow } from '@/src/constants/theme';
 import {
   cardTableGroupLabel,
   cardTableSubgroupLabel,
@@ -197,11 +197,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.md,
     gap: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
+    ...surfaceShadow('md'),
   },
   popoverTitle: {
     fontSize: 16,

@@ -162,14 +162,15 @@ export default function LogTemplatesScreen() {
                     value={contentHtml}
                     onChange={setContentHtml}
                     placeholder="Write template content..."
+                    footer={
+                      <FormActionBar>
+                        <IconButton icon="close" label="Cancel" onPress={resetForm} variant="surface" />
+                        <SaveButton onPress={handleSave} />
+                      </FormActionBar>
+                    }
                   />
                 </FormField>
               </View>
-
-              <FormActionBar>
-                <IconButton icon="close" label="Cancel" onPress={resetForm} variant="surface" />
-                <SaveButton onPress={handleSave} />
-              </FormActionBar>
             </View>
           ) : null
         }

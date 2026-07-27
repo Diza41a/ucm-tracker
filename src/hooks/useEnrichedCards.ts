@@ -22,7 +22,6 @@ export function useEnrichedCards(cards: Card[], catalog: Card[] = []) {
       return enrichCardsWithSubcategories(merged);
     },
     enabled: cards.length > 0,
-    refetchOnMount: 'always',
     placeholderData: (previous) => previous ?? mergeCardsWithCatalog(cards, catalog),
   });
 }
