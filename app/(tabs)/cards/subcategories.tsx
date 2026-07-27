@@ -13,58 +13,49 @@ import {
   View,
 } from 'react-native';
 
-import { StoryTagBadge } from '@/src/components/StoryTagBadge';
+import { CardSubcategoryBadge } from '@/src/components/CardSubcategoryBadge';
 import { ErrorState, InlineEmptyState, LoadingState } from '@/src/components/StateViews';
-import { ColorPickerField } from '@/src/components/ui/ColorPickerField';
 import { FormField } from '@/src/components/ui/FormField';
 import { FormActionBar } from '@/src/components/ui/FormActionBar';
 import { IconButton } from '@/src/components/ui/IconButton';
 import { SaveButton } from '@/src/components/ui/SaveButton';
 import { colors, radii, spacing } from '@/src/constants/theme';
 import { formStyles } from '@/src/constants/form';
-import { useStories } from '@/src/hooks/useStories';
 import {
-  useCreateStoryTag,
-  useDeleteStoryTag,
-  useStoryTags,
-  useUpdateStoryTag,
-} from '@/src/hooks/useStoryTags';
-import type { StoryTag } from '@/src/types';
-import { isValidHexColor } from '@/src/utils/color';
+  useCardSubcategories,
+  useCreateCardSubcategory,
+  useDeleteCardSubcategory,
+  useUpdateCardSubcategory,
+} from '@/src/hooks/useCardSubcategories';
+import { useCards } from '@/src/hooks/useCards';
+import type { CardSubcategory } from '@/src/types';
 
-const DEFAULT_BG_COLOR = colors.primary;
-const DEFAULT_TEXT_COLOR = '#FFFFFF';
-
-export default function StoryTagsScreen() {
+export default function CardSubcategoriesScreen() {
   const navigation = useNavigation();
-  const { data: tags, isLoading, error, refetch } = useStoryTags();
-  const { data: stories } = useStories();
-  const createTag = useCreateStoryTag();
-  const updateTag = useUpdateStoryTag();
-  const deleteTag = useDeleteStoryTag();
+  const { data: subcategories, isLoading, error, refetch } = useCardSubcategories();
+  const { data: cards } = useCards();
+  const createSubcategory = useCreateCardSubcategory();
+  const updateSubcategory = useUpdateCardSubcategory();
+  const deleteSubcategory = useDeleteCardSubcategory();
 
   const [name, setName] = useState('');
-  const [bgColor, setBgColor] = useState(DEFAULT_BG_COLOR);
-  const [textColor, setTextColor] = useState(DEFAULT_TEXT_COLOR);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formVisible, setFormVisible] = useState(false);
 
-  const isSaving = createTag.isPending || updateTag.isPending;
+  const isSaving = createSubcategory.isPending || updateSubcategory.isPending;
 
-  const storyCountByTag = useMemo(() => {
+  const cardCountBySubcategory = useMemo(() => {
     const counts: Record<string, number> = {};
-    stories?.forEach((story) => {
-      story.story_tags?.forEach((tag) => {
-        counts[tag.id] = (counts[tag.id] ?? 0) + 1;
+    cards?.forEach((card) => {
+      card.subcategories?.forEach((subcategory) => {
+        counts[subcategory.id] = (counts[subcategory.id] ?? 0) + 1;
       });
     });
     return counts;
-  }, [stories]);
+  }, [cards]);
 
   const resetForm = useCallback(() => {
     setName('');
-    setBgColor(DEFAULT_BG_COLOR);
-    setTextColor(DEFAULT_TEXT_COLOR);
     setEditingId(null);
   }, []);
 
@@ -78,11 +69,9 @@ export default function StoryTagsScreen() {
     setFormVisible(true);
   }, [resetForm]);
 
-  const startEdit = useCallback((tag: StoryTag) => {
-    setEditingId(tag.id);
-    setName(tag.name);
-    setBgColor(tag.bg_color);
-    setTextColor(tag.text_color);
+  const startEdit = useCallback((subcategory: CardSubcategory) => {
+    setEditingId(subcategory.id);
+    setName(subcategory.name);
     setFormVisible(true);
   }, []);
 
@@ -92,7 +81,7 @@ export default function StoryTagsScreen() {
         <Pressable
           onPress={openCreateForm}
           hitSlop={8}
-          accessibilityLabel="Add story tag"
+          accessibilityLabel="Add subcategory"
           accessibilityRole="button"
           style={styles.headerBtn}>
           <Ionicons name="add" size={28} color={colors.primary} />
@@ -106,22 +95,12 @@ export default function StoryTagsScreen() {
       Alert.alert('Validation', 'Name is required.');
       return;
     }
-    if (!isValidHexColor(bgColor) || !isValidHexColor(textColor)) {
-      Alert.alert('Validation', 'Background and text colors must be valid hex values.');
-      return;
-    }
-
-    const payload = {
-      name: name.trim(),
-      bg_color: bgColor,
-      text_color: textColor,
-    };
 
     try {
       if (editingId) {
-        await updateTag.mutateAsync({ id: editingId, ...payload });
+        await updateSubcategory.mutateAsync({ id: editingId, name: name.trim() });
       } else {
-        await createTag.mutateAsync(payload);
+        await createSubcategory.mutateAsync({ name: name.trim() });
       }
       closeForm();
     } catch (e) {
@@ -130,23 +109,23 @@ export default function StoryTagsScreen() {
   };
 
   const handleDelete = (id: string) => {
-    const storyCount = storyCountByTag[id] ?? 0;
-    if (storyCount > 0) {
+    const cardCount = cardCountBySubcategory[id] ?? 0;
+    if (cardCount > 0) {
       Alert.alert(
         'Cannot delete',
-        `This tag is used by ${storyCount} stor${storyCount === 1 ? 'y' : 'ies'}. Remove it from those stories first.`
+        `This subcategory is used by ${cardCount} card${cardCount === 1 ? '' : 's'}. Remove it from those cards first.`
       );
       return;
     }
 
-    Alert.alert('Delete story tag', 'This cannot be undone.', [
+    Alert.alert('Delete subcategory', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
           try {
-            await deleteTag.mutateAsync(id);
+            await deleteSubcategory.mutateAsync(id);
             if (editingId === id) closeForm();
           } catch (e) {
             Alert.alert('Error', e instanceof Error ? e.message : 'Failed to delete');
@@ -162,26 +141,26 @@ export default function StoryTagsScreen() {
   return (
     <View style={styles.container}>
       <FlatList
-        data={tags}
+        data={subcategories}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <InlineEmptyState
-            icon="pricetags-outline"
-            message="No story tags yet. Tags are optional labels for grouping stories."
-            actionLabel="Add story tag"
+            icon="albums-outline"
+            message="No subcategories yet. Cards can use none, one, or many."
+            actionLabel="Add subcategory"
             onAction={openCreateForm}
           />
         }
         renderItem={({ item }) => {
-          const storyCount = storyCountByTag[item.id] ?? 0;
+          const cardCount = cardCountBySubcategory[item.id] ?? 0;
           return (
             <View style={styles.row}>
               <View style={styles.rowInfo}>
-                <StoryTagBadge tag={item} />
-                {storyCount > 0 ? (
-                  <Text style={styles.storyCount}>
-                    {storyCount} stor{storyCount === 1 ? 'y' : 'ies'}
+                <CardSubcategoryBadge subcategory={item} />
+                {cardCount > 0 ? (
+                  <Text style={styles.cardCount}>
+                    {cardCount} card{cardCount === 1 ? '' : 's'}
                   </Text>
                 ) : null}
               </View>
@@ -189,7 +168,7 @@ export default function StoryTagsScreen() {
                 <Pressable onPress={() => startEdit(item)} hitSlop={8}>
                   <Ionicons name="create-outline" size={18} color={colors.primary} />
                 </Pressable>
-                {storyCount === 0 ? (
+                {cardCount === 0 ? (
                   <Pressable onPress={() => handleDelete(item.id)} hitSlop={8}>
                     <Ionicons name="trash-outline" size={18} color={colors.danger} />
                   </Pressable>
@@ -209,7 +188,9 @@ export default function StoryTagsScreen() {
           <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation?.()}>
             <View style={styles.handle} />
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{editingId ? 'Edit tag' : 'New story tag'}</Text>
+              <Text style={styles.sheetTitle}>
+                {editingId ? 'Edit subcategory' : 'New subcategory'}
+              </Text>
               <Pressable onPress={closeForm} hitSlop={8}>
                 <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
@@ -224,27 +205,13 @@ export default function StoryTagsScreen() {
                   style={formStyles.input}
                   value={name}
                   onChangeText={setName}
-                  placeholder="e.g. Core belief"
+                  placeholder="e.g. Social confidence"
                   placeholderTextColor={colors.textSecondary}
                 />
               </FormField>
 
-              <FormField icon="color-fill-outline" title="Background color">
-                <ColorPickerField label="Background" value={bgColor} onChange={setBgColor} />
-              </FormField>
-
-              <FormField icon="text-outline" title="Text color">
-                <ColorPickerField label="Text" value={textColor} onChange={setTextColor} />
-              </FormField>
-
               <FormField icon="eye-outline" title="Preview">
-                <StoryTagBadge
-                  tag={{
-                    name: name.trim() || 'Preview',
-                    bg_color: bgColor,
-                    text_color: textColor,
-                  }}
-                />
+                <CardSubcategoryBadge subcategory={{ name: name.trim() || 'Preview' }} />
               </FormField>
             </ScrollView>
 
@@ -292,7 +259,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
     gap: spacing.xs,
   },
-  storyCount: {
+  cardCount: {
     fontSize: 13,
     color: colors.textSecondary,
   },

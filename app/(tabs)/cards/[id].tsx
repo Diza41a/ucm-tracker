@@ -13,6 +13,8 @@ import {
   View,
 } from 'react-native';
 
+import { CardSubcategoryPicker } from '@/src/components/CardSubcategoryPicker';
+import { RichTextEditor } from '@/src/components/RichTextEditor';
 import { StorySelector } from '@/src/components/StorySelector';
 import { ErrorState, InlineEmptyState, LoadingState } from '@/src/components/StateViews';
 import { FormField } from '@/src/components/ui/FormField';
@@ -48,8 +50,9 @@ export default function CardDetailScreen() {
   const [difficulty, setDifficulty] = useState('5');
   const [action, setAction] = useState('');
   const [functionPurpose, setFunctionPurpose] = useState('');
-  const [practiceLocation, setPracticeLocation] = useState('');
+  const [notesHtml, setNotesHtml] = useState('');
   const [selectedStoryIds, setSelectedStoryIds] = useState<string[]>([]);
+  const [selectedSubcategoryIds, setSelectedSubcategoryIds] = useState<string[]>([]);
   const [completedOnce, setCompletedOnce] = useState(false);
 
   const isSaving = createCard.isPending || updateCard.isPending;
@@ -60,8 +63,9 @@ export default function CardDetailScreen() {
       setDifficulty(String(card.difficulty));
       setAction(card.action);
       setFunctionPurpose(card.function_purpose);
-      setPracticeLocation(card.practice_location_ideas ?? '');
+      setNotesHtml(card.practice_location_ideas ?? '');
       setSelectedStoryIds(card.stories?.map((s) => s.id) ?? []);
+      setSelectedSubcategoryIds(card.subcategories?.map((subcategory) => subcategory.id) ?? []);
       setCompletedOnce(card.completed_once ?? false);
     } else if (isNew && cardTypes?.length) {
       setCardTypeId(cardTypes[0].id);
@@ -116,8 +120,9 @@ export default function CardDetailScreen() {
         difficulty: diff,
         action: action.trim(),
         function_purpose: functionPurpose.trim(),
-        practice_location_ideas: practiceLocation.trim() || null,
+        practice_location_ideas: notesHtml.trim() || null,
         story_ids: selectedStoryIds,
+        subcategory_ids: selectedSubcategoryIds,
         completed_once: completedOnce,
       };
 
@@ -263,13 +268,18 @@ export default function CardDetailScreen() {
           />
         </FormField>
 
-        <FormField icon="location-outline" title="Practice location ideas">
-          <TextInput
-            style={formStyles.input}
-            value={practiceLocation}
-            onChangeText={setPracticeLocation}
-            placeholder="e.g. Coffee shop, park bench"
-            placeholderTextColor={colors.textMuted}
+        <FormField icon="document-text-outline" title="Notes">
+          <RichTextEditor
+            value={notesHtml}
+            onChange={setNotesHtml}
+            placeholder="Practice locations, reminders, variations..."
+          />
+        </FormField>
+
+        <FormField icon="albums-outline" title="Subcategories">
+          <CardSubcategoryPicker
+            value={selectedSubcategoryIds}
+            onChange={setSelectedSubcategoryIds}
           />
         </FormField>
 

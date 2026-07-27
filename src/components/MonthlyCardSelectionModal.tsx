@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -11,12 +11,16 @@ import {
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 
-import { CardBadge } from '@/src/components/CardBadge';
+import { CardMetaChips } from '@/src/components/CardMetaChips';
 import { InlineEmptyState } from '@/src/components/StateViews';
+import { supportsNativeDragAndDrop } from '@/src/constants/platform';
 import { colors, radii, spacing } from '@/src/constants/theme';
 import { formStyles } from '@/src/constants/form';
 import { useCardTypes } from '@/src/hooks/useCardTypes';
+import { useCardSubcategories } from '@/src/hooks/useCardSubcategories';
+import { useEnrichedCards } from '@/src/hooks/useEnrichedCards';
 import type { Card } from '@/src/types';
+import { moveListItem } from '@/src/utils/reorderList';
 
 interface MonthlyCardSelectionModalProps {
   visible: boolean;
@@ -34,13 +38,23 @@ export function MonthlyCardSelectionModal({
   onChange,
 }: MonthlyCardSelectionModalProps) {
   const { data: cardTypes } = useCardTypes();
+  const { data: subcategories } = useCardSubcategories();
   const [filterTypeId, setFilterTypeId] = useState<string | null>(null);
+  const [filterSubcategoryId, setFilterSubcategoryId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
+  const enrichedAllCards = useEnrichedCards(allCards, allCards).data ?? allCards;
+  const enrichedSelectedCards = useEnrichedCards(selectedCards, allCards).data ?? selectedCards;
+
   const filteredPool = useMemo(() => {
-    let pool = allCards;
+    let pool = enrichedAllCards;
     if (filterTypeId) {
       pool = pool.filter((card) => card.card_type_id === filterTypeId);
+    }
+    if (filterSubcategoryId) {
+      pool = pool.filter((card) =>
+        card.subcategories?.some((subcategory) => subcategory.id === filterSubcategoryId)
+      );
     }
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -51,25 +65,57 @@ export function MonthlyCardSelectionModal({
       );
     }
     return pool;
-  }, [allCards, filterTypeId, search]);
+  }, [enrichedAllCards, filterSubcategoryId, filterTypeId, search]);
 
   const toggleCard = (card: Card) => {
-    const exists = selectedCards.some((item) => item.id === card.id);
+    const exists = enrichedSelectedCards.some((item) => item.id === card.id);
     if (exists) {
-      onChange(selectedCards.filter((item) => item.id !== card.id));
+      onChange(enrichedSelectedCards.filter((item) => item.id !== card.id));
     } else {
-      onChange([...selectedCards, card]);
+      onChange([...enrichedSelectedCards, card]);
     }
   };
 
-  const renderSelectedItem = ({ item, drag, isActive }: RenderItemParams<Card>) => (
-    <ScaleDecorator>
+  const moveSelectedCard = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      onChange(moveListItem(enrichedSelectedCards, fromIndex, toIndex));
+    },
+    [enrichedSelectedCards, onChange]
+  );
+
+  const renderSelectedRow = (
+    item: Card,
+    options: { drag?: () => void; isActive?: boolean; index?: number } = {}
+  ) => {
+    const { drag, isActive = false, index } = options;
+
+    return (
       <View style={[styles.selectedRow, isActive && styles.selectedRowActive]}>
-        <Pressable onLongPress={drag} style={styles.dragHandle}>
-          <Ionicons name="reorder-three" size={20} color={colors.textMuted} />
-        </Pressable>
+        {supportsNativeDragAndDrop && drag ? (
+          <Pressable onLongPress={drag} style={styles.dragHandle}>
+            <Ionicons name="reorder-three" size={20} color={colors.textMuted} />
+          </Pressable>
+        ) : index !== undefined ? (
+          <View style={styles.webReorderControls}>
+            <Pressable
+              onPress={() => moveSelectedCard(index, index - 1)}
+              disabled={index === 0}
+              style={[styles.webReorderBtn, index === 0 && styles.webReorderBtnDisabled]}>
+              <Ionicons name="chevron-up" size={16} color={colors.textMuted} />
+            </Pressable>
+            <Pressable
+              onPress={() => moveSelectedCard(index, index + 1)}
+              disabled={index === enrichedSelectedCards.length - 1}
+              style={[
+                styles.webReorderBtn,
+                index === enrichedSelectedCards.length - 1 && styles.webReorderBtnDisabled,
+              ]}>
+              <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+            </Pressable>
+          </View>
+        ) : null}
         <View style={styles.selectedInfo}>
-          {item.card_type ? <CardBadge cardType={item.card_type} /> : null}
+          <CardMetaChips card={item} compact />
           <Text style={styles.selectedAction} numberOfLines={2}>
             {item.action}
           </Text>
@@ -78,7 +124,11 @@ export function MonthlyCardSelectionModal({
           <Ionicons name="close-circle-outline" size={22} color={colors.danger} />
         </Pressable>
       </View>
-    </ScaleDecorator>
+    );
+  };
+
+  const renderSelectedItem = ({ item, drag, isActive }: RenderItemParams<Card>) => (
+    <ScaleDecorator>{renderSelectedRow(item, { drag, isActive })}</ScaleDecorator>
   );
 
   return (
@@ -91,26 +141,43 @@ export function MonthlyCardSelectionModal({
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.sectionTitle}>Selected ({selectedCards.length})</Text>
-          {selectedCards.length === 0 ? (
+        <View style={styles.selectedSection}>
+          <Text style={styles.sectionTitle}>Selected ({enrichedSelectedCards.length})</Text>
+          {enrichedSelectedCards.length === 0 ? (
             <InlineEmptyState
               icon="albums-outline"
               message="Pick cards below to focus on this month."
               compact
             />
-          ) : (
+          ) : supportsNativeDragAndDrop ? (
             <DraggableFlatList
-              data={selectedCards}
+              data={enrichedSelectedCards}
               keyExtractor={(item) => item.id}
               onDragEnd={({ data }) => onChange(data)}
               renderItem={renderSelectedItem}
-              scrollEnabled
+              scrollEnabled={enrichedSelectedCards.length > 3}
               nestedScrollEnabled
-              containerStyle={styles.selectedList}
+              style={styles.selectedList}
+              containerStyle={styles.selectedListInner}
             />
+          ) : (
+            <ScrollView
+              style={styles.selectedList}
+              contentContainerStyle={styles.selectedListInner}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator={enrichedSelectedCards.length > 3}>
+              {enrichedSelectedCards.map((item, index) => (
+                <View key={item.id}>{renderSelectedRow(item, { index })}</View>
+              ))}
+            </ScrollView>
           )}
+        </View>
 
+        <ScrollView
+          style={styles.poolScroll}
+          contentContainerStyle={styles.poolContent}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled">
           <Text style={styles.sectionTitle}>Add cards</Text>
           <TextInput
             style={formStyles.input}
@@ -130,7 +197,7 @@ export function MonthlyCardSelectionModal({
                 style={[styles.filterChip, !filterTypeId && styles.filterChipActive]}
                 onPress={() => setFilterTypeId(null)}>
                 <Text style={[styles.filterText, !filterTypeId && styles.filterTextActive]}>
-                  All
+                  All types
                 </Text>
               </Pressable>
               {cardTypes.map((type) => {
@@ -154,19 +221,49 @@ export function MonthlyCardSelectionModal({
             </ScrollView>
           ) : null}
 
+          {subcategories && subcategories.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filtersBar}
+              contentContainerStyle={styles.filters}>
+              <Pressable
+                style={[styles.filterChip, !filterSubcategoryId && styles.filterChipActive]}
+                onPress={() => setFilterSubcategoryId(null)}>
+                <Text
+                  style={[styles.filterText, !filterSubcategoryId && styles.filterTextActive]}>
+                  All subcategories
+                </Text>
+              </Pressable>
+              {subcategories.map((subcategory) => {
+                const active = filterSubcategoryId === subcategory.id;
+                return (
+                  <Pressable
+                    key={subcategory.id}
+                    style={[styles.filterChip, active && styles.filterChipActive]}
+                    onPress={() => setFilterSubcategoryId(subcategory.id)}>
+                    <Text style={[styles.filterText, active && styles.filterTextActive]}>
+                      {subcategory.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : null}
+
           <View style={styles.poolList}>
             {filteredPool.length === 0 ? (
               <InlineEmptyState icon="search-outline" message="No cards match your filters." compact />
             ) : (
               filteredPool.map((card) => {
-                const selected = selectedCards.some((item) => item.id === card.id);
+                const selected = enrichedSelectedCards.some((item) => item.id === card.id);
                 return (
                   <Pressable
                     key={card.id}
                     style={[styles.poolRow, selected && styles.poolRowSelected]}
                     onPress={() => toggleCard(card)}>
                     <View style={styles.poolInfo}>
-                      {card.card_type ? <CardBadge cardType={card.card_type} /> : null}
+                      <CardMetaChips card={card} compact />
                       <Text style={styles.poolAction} numberOfLines={2}>
                         {card.action}
                       </Text>
@@ -212,10 +309,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  content: {
-    padding: spacing.screenPadding,
-    paddingBottom: 24,
-    gap: spacing.md,
+  selectedSection: {
+    flexShrink: 0,
+    paddingHorizontal: spacing.screenPadding,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.background,
   },
   sectionTitle: {
     fontSize: 14,
@@ -225,8 +327,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   selectedList: {
-    flexGrow: 0,
     maxHeight: 220,
+    flexGrow: 0,
+  },
+  selectedListInner: {
+    flexGrow: 0,
+  },
+  poolScroll: {
+    flex: 1,
+  },
+  poolContent: {
+    padding: spacing.screenPadding,
+    paddingBottom: 24,
+    gap: spacing.md,
   },
   selectedRow: {
     flexDirection: 'row',
@@ -245,6 +358,18 @@ const styles = StyleSheet.create({
   },
   dragHandle: {
     paddingVertical: 4,
+  },
+  webReorderControls: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  webReorderBtn: {
+    padding: 2,
+  },
+  webReorderBtnDisabled: {
+    opacity: 0.35,
   },
   selectedInfo: {
     flex: 1,

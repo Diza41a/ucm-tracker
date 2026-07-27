@@ -5,8 +5,8 @@ import { useCardTypes } from '@/src/hooks/useCardTypes';
 import type { Story } from '@/src/types';
 import {
   type CardFilterState,
-  type CompletedFilter,
-  type DifficultyFilter,
+  type DifficultyFilterValue,
+  toggleFilterValue,
 } from '@/src/utils/cardFilters';
 import { storyDisplayName } from '@/src/utils/display';
 
@@ -44,15 +44,21 @@ export function CardFilterBar({
           contentContainerStyle={styles.filters}>
           <Text style={styles.filterLabel}>Type</Text>
           <Pressable
-            style={[styles.filterChip, !filters.filterTypeId && styles.filterChipActive]}
-            onPress={() => onChange({ filterTypeId: null })}>
+            style={[
+              styles.filterChip,
+              filters.filterTypeIds.length === 0 && styles.filterChipActive,
+            ]}
+            onPress={() => onChange({ filterTypeIds: [] })}>
             <Text
-              style={[styles.filterText, !filters.filterTypeId && styles.filterTextActive]}>
+              style={[
+                styles.filterText,
+                filters.filterTypeIds.length === 0 && styles.filterTextActive,
+              ]}>
               All
             </Text>
           </Pressable>
           {cardTypes.map((type) => {
-            const active = filters.filterTypeId === type.id;
+            const active = filters.filterTypeIds.includes(type.id);
             return (
               <Pressable
                 key={type.id}
@@ -62,7 +68,11 @@ export function CardFilterBar({
                     ? { backgroundColor: type.bg_color, borderColor: type.bg_color }
                     : null,
                 ]}
-                onPress={() => onChange({ filterTypeId: type.id })}>
+                onPress={() =>
+                  onChange({
+                    filterTypeIds: toggleFilterValue(filters.filterTypeIds, type.id),
+                  })
+                }>
                 <Text style={[styles.filterText, active ? { color: type.text_color } : null]}>
                   {type.name}
                 </Text>
@@ -79,17 +89,20 @@ export function CardFilterBar({
         <Text style={styles.filterLabel}>Done</Text>
         {(
           [
-            ['all', 'All'],
             ['done', 'Done once'],
             ['not_done', 'Not yet'],
           ] as const
         ).map(([value, label]) => {
-          const active = filters.filterCompleted === value;
+          const active = filters.filterCompleted.includes(value);
           return (
             <Pressable
               key={value}
               style={[styles.filterChip, active && styles.filterChipActive]}
-              onPress={() => onChange({ filterCompleted: value as CompletedFilter })}>
+              onPress={() =>
+                onChange({
+                  filterCompleted: toggleFilterValue(filters.filterCompleted, value),
+                })
+              }>
               <Text style={[styles.filterText, active && styles.filterTextActive]}>{label}</Text>
             </Pressable>
           );
@@ -103,18 +116,24 @@ export function CardFilterBar({
         <Text style={styles.filterLabel}>Difficulty</Text>
         {(
           [
-            ['all', 'All'],
             ['easy', '1-3'],
             ['medium', '4-7'],
             ['hard', '8-10'],
           ] as const
         ).map(([value, label]) => {
-          const active = filters.filterDifficulty === value;
+          const active = filters.filterDifficulties.includes(value);
           return (
             <Pressable
               key={value}
               style={[styles.filterChip, active && styles.filterChipActive]}
-              onPress={() => onChange({ filterDifficulty: value as DifficultyFilter })}>
+              onPress={() =>
+                onChange({
+                  filterDifficulties: toggleFilterValue(
+                    filters.filterDifficulties,
+                    value as DifficultyFilterValue
+                  ),
+                })
+              }>
               <Text style={[styles.filterText, active && styles.filterTextActive]}>{label}</Text>
             </Pressable>
           );

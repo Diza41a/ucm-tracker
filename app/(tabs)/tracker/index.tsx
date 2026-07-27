@@ -2,13 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { NestableScrollContainer } from 'react-native-draggable-flatlist';
 import { Calendar, DateData } from 'react-native-calendars';
 
 import { MonthlyCardPriorities } from '@/src/components/MonthlyCardPriorities';
+import { MonthlyNotes } from '@/src/components/MonthlyNotes';
 import { OutingProgressPanel } from '@/src/components/OutingProgressPanel';
 import { MonthlyReflectionCard } from '@/src/components/MonthlyReflectionCard';
 import { MonthPicker } from '@/src/components/MonthPicker';
 import { ErrorState, LoadingState } from '@/src/components/StateViews';
+import { supportsNativeDragAndDrop } from '@/src/constants/platform';
 import { colors, calendarTheme, radii } from '@/src/constants/theme';
 import { useMonthlyCommitment } from '@/src/hooks/useMonthlyCommitment';
 import { useOutingLogsForMonth } from '@/src/hooks/useOutingLogs';
@@ -88,8 +91,10 @@ export default function TrackerScreen() {
   if (isLoading && logs === undefined) return <LoadingState />;
   if (error) return <ErrorState message={error.message} onRetry={() => refetch()} />;
 
+  const ScrollContainer = supportsNativeDragAndDrop ? NestableScrollContainer : ScrollView;
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollContainer style={styles.container} contentContainerStyle={styles.content}>
       <MonthPicker
         year={year}
         month={month}
@@ -141,8 +146,10 @@ export default function TrackerScreen() {
 
       <MonthlyCardPriorities year={year} month={month} />
 
+      <MonthlyNotes year={year} month={month} />
+
       <MonthlyReflectionCard year={year} month={month} />
-    </ScrollView>
+    </ScrollContainer>
   );
 }
 

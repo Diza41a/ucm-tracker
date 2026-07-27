@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 
 import { supabase } from '@/src/lib/supabase';
-import type { Card, OutingLog, Story } from '@/src/types';
+import type { Card, OutingLog, OutingLogTask, Story } from '@/src/types';
+import { enrichCardsWithSubcategories } from '@/src/utils/cardRelations';
 import { normalizeStoryFromDb } from '@/src/utils/story';
 
 export const outingLogKeys = {
@@ -21,17 +22,31 @@ function normalizeCard(card: unknown): Card | null {
 }
 
 async function attachRelationsToLog(log: OutingLog): Promise<OutingLog> {
-  const [{ data: logStories, error: storiesError }, { data: logCards, error: cardsError }] =
-    await Promise.all([
-      supabase.from('outing_log_stories').select('story:stories(*, story_story_tags(story_tag:story_tags(*)))').eq('log_id', log.id),
-      supabase
-        .from('outing_log_cards')
-        .select('card:cards(*, card_type:card_types(*))')
-        .eq('log_id', log.id),
-    ]);
+  const [
+    { data: logStories, error: storiesError },
+    { data: logCards, error: cardsError },
+    { data: logTasks, error: tasksError },
+  ] = await Promise.all([
+    supabase.from('outing_log_stories').select('story:stories(*, story_story_tags(story_tag:story_tags(*)))').eq('log_id', log.id),
+    supabase
+      .from('outing_log_cards')
+      .select('card:cards(*, card_type:card_types(*))')
+      .eq('log_id', log.id),
+    supabase
+      .from('outing_log_tasks')
+      .select('*')
+      .eq('log_id', log.id)
+      .order('sort_order'),
+  ]);
 
   if (storiesError) throw storiesError;
   if (cardsError) throw cardsError;
+  if (tasksError) throw tasksError;
+
+  const cards =
+    logCards
+      ?.map((row) => normalizeCard(row.card))
+      .filter((c): c is Card => c !== null) ?? [];
 
   return {
     ...log,
@@ -40,10 +55,8 @@ async function attachRelationsToLog(log: OutingLog): Promise<OutingLog> {
       logStories
         ?.map((row) => normalizeStory(row.story))
         .filter((s): s is Story => s !== null) ?? [],
-    cards:
-      logCards
-        ?.map((row) => normalizeCard(row.card))
-        .filter((c): c is Card => c !== null) ?? [],
+    cards: await enrichCardsWithSubcategories(cards),
+    tasks: (logTasks as OutingLogTask[]) ?? [],
   };
 }
 

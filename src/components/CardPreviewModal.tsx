@@ -9,7 +9,8 @@ import {
   View,
 } from 'react-native';
 
-import { CardBadge } from '@/src/components/CardBadge';
+import { CardMetaChips } from '@/src/components/CardMetaChips';
+import { HtmlContent } from '@/src/components/HtmlContent';
 import { StoryChip } from '@/src/components/StoryChip';
 import { colors, radii, spacing } from '@/src/constants/theme';
 import type { Card } from '@/src/types';
@@ -42,7 +43,9 @@ export function CardPreviewModal({
         </View>
         <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
           <View style={styles.metaRow}>
-            {card.card_type ? <CardBadge cardType={card.card_type} /> : null}
+            <View style={styles.metaChips}>
+              <CardMetaChips card={card} />
+            </View>
             <Text style={styles.difficulty}>{card.difficulty}/10</Text>
           </View>
 
@@ -55,8 +58,8 @@ export function CardPreviewModal({
 
           {card.practice_location_ideas ? (
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Practice location ideas</Text>
-              <Text style={styles.sectionText}>{card.practice_location_ideas}</Text>
+              <Text style={styles.sectionLabel}>Notes</Text>
+              <HtmlContent html={card.practice_location_ideas} />
             </View>
           ) : null}
 
@@ -132,8 +135,13 @@ const styles = StyleSheet.create({
   },
   metaRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  metaChips: {
+    flex: 1,
+    minWidth: 0,
   },
   difficulty: {
     fontSize: 16,

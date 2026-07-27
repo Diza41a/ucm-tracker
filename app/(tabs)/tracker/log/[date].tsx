@@ -14,6 +14,7 @@ import {
 
 import { CardPickerModal } from '@/src/components/CardPickerModal';
 import { CardPreviewModal } from '@/src/components/CardPreviewModal';
+import { OutingLogTasks } from '@/src/components/OutingLogTasks';
 import { RichTextEditor } from '@/src/components/RichTextEditor';
 import { StoryPickerModal } from '@/src/components/StoryPickerModal';
 import { StoryPreviewModal } from '@/src/components/StoryPreviewModal';
@@ -21,8 +22,9 @@ import { InlineEmptyState, LoadingState } from '@/src/components/StateViews';
 import { FormField } from '@/src/components/ui/FormField';
 import { FormActionBar } from '@/src/components/ui/FormActionBar';
 import { IconButton } from '@/src/components/ui/IconButton';
-import { SaveButton } from '@/src/components/ui/SaveButton';
+import { RemovableCardChip } from '@/src/components/ui/RemovableCardChip';
 import { RemovablePill } from '@/src/components/ui/RemovablePill';
+import { SaveButton } from '@/src/components/ui/SaveButton';
 import { colors, spacing } from '@/src/constants/theme';
 import { formStyles } from '@/src/constants/form';
 import { useCards } from '@/src/hooks/useCards';
@@ -240,6 +242,12 @@ export default function DayLogScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={formStyles.screenContent}>
+        <OutingLogTasks
+          logDate={date}
+          serverTasks={existingLog?.tasks}
+          defaultTemplateId={templateId ?? defaultTemplate?.id ?? null}
+        />
+
         <FormField
           icon="albums-outline"
           title="Cards worked on"
@@ -250,20 +258,14 @@ export default function DayLogScreen() {
           }>
           {taggedCards.length > 0 ? (
             <View style={formStyles.chipRow}>
-              {taggedCards.map((card) => {
-                const type = card.card_type;
-                return (
-                  <RemovablePill
-                    key={card.id}
-                    label={card.action}
-                    backgroundColor={type?.bg_color ?? colors.chip}
-                    textColor={type?.text_color ?? colors.text}
-                    borderColor={type?.bg_color ?? colors.chipBorder}
-                    onPress={() => setPreviewCard(card)}
-                    onRemove={() => removeCard(card.id)}
-                  />
-                );
-              })}
+              {taggedCards.map((card) => (
+                <RemovableCardChip
+                  key={card.id}
+                  card={card}
+                  onPress={() => setPreviewCard(card)}
+                  onRemove={() => removeCard(card.id)}
+                />
+              ))}
             </View>
           ) : (
             <InlineEmptyState
@@ -281,8 +283,8 @@ export default function DayLogScreen() {
         </FormField>
 
         <FormField
-          icon="pricetags-outline"
-          title="Story tags"
+          icon="book-outline"
+          title="Stories"
           action={
             <Pressable style={styles.addBtn} onPress={() => setShowStoryPicker(true)}>
               <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
@@ -307,9 +309,9 @@ export default function DayLogScreen() {
             </View>
           ) : (
             <InlineEmptyState
-              icon="pricetags-outline"
+              icon="book-outline"
               message="No stories tagged yet."
-              actionLabel={allStories?.length ? 'Tag stories' : 'Create a story'}
+              actionLabel={allStories?.length ? 'Add stories' : 'Create a story'}
               onAction={() =>
                 allStories?.length
                   ? setShowStoryPicker(true)

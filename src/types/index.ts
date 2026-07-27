@@ -26,6 +26,13 @@ export interface CardType {
   created_at: string;
 }
 
+export interface CardSubcategory {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+}
+
 export interface Card {
   id: string;
   user_id: string;
@@ -39,6 +46,7 @@ export interface Card {
   updated_at: string;
   card_type?: CardType;
   stories?: Story[];
+  subcategories?: CardSubcategory[];
 }
 
 export interface MonthlyCommitment {
@@ -71,6 +79,17 @@ export interface LogTemplate {
   updated_at: string;
 }
 
+export interface OutingLogTask {
+  id: string;
+  log_id: string;
+  user_id: string;
+  title: string;
+  sort_order: number;
+  completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface OutingLog {
   id: string;
   user_id: string;
@@ -84,9 +103,20 @@ export interface OutingLog {
   template?: LogTemplate;
   stories?: Story[];
   cards?: Card[];
+  tasks?: OutingLogTask[];
 }
 
 export interface MonthlyReflection {
+  id: string;
+  user_id: string;
+  year: number;
+  month: number;
+  content_html: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonthlyNotes {
   id: string;
   user_id: string;
   year: number;

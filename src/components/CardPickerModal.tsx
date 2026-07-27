@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 
-import { CardBadge } from '@/src/components/CardBadge';
+import { CardMetaChips } from '@/src/components/CardMetaChips';
 import { CardFilterBar } from '@/src/components/CardFilterBar';
 import { InlineEmptyState } from '@/src/components/StateViews';
 import { colors, radii, spacing } from '@/src/constants/theme';
@@ -17,20 +17,16 @@ import { useMonthlyPriorities } from '@/src/hooks/useMonthlyPriorities';
 import type { Card } from '@/src/types';
 import {
   type CardFilterState,
+  DEFAULT_CARD_FILTER_STATE,
   filterCards,
   getLinkedStoriesFromCards,
 } from '@/src/utils/cardFilters';
+import { mergeCardsWithCatalog } from '@/src/utils/cardRelations';
 import { formatMonthYear } from '@/src/utils/display';
 
 type PickerTab = 'month' | 'all';
 
-const EMPTY_FILTERS: CardFilterState = {
-  search: '',
-  filterTypeId: null,
-  filterCompleted: 'all',
-  filterDifficulty: 'all',
-  filterStoryId: null,
-};
+const EMPTY_FILTERS: CardFilterState = DEFAULT_CARD_FILTER_STATE;
 
 interface CardPickerModalProps {
   visible: boolean;
@@ -58,7 +54,7 @@ function CardPickerRow({
       style={[styles.row, selected && styles.rowSelected]}
       onPress={onPress}>
       <View style={styles.rowInfo}>
-        {card.card_type ? <CardBadge cardType={card.card_type} /> : null}
+        <CardMetaChips card={card} compact />
         <Text style={styles.rowText} numberOfLines={2}>
           {card.action}
         </Text>
@@ -90,12 +86,14 @@ export function CardPickerModal({
   const monthPoolCards = useMemo(() => {
     if (!priorities?.length) return [] as Card[];
 
-    return priorities
+    const fromPriorities = priorities
       .slice()
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((priority) => priority.card)
       .filter((card): card is Card => !!card);
-  }, [priorities]);
+
+    return mergeCardsWithCatalog(fromPriorities, allCards ?? []);
+  }, [allCards, priorities]);
 
   const linkedStories = useMemo(
     () => getLinkedStoriesFromCards(allCards ?? []),

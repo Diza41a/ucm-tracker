@@ -30,6 +30,9 @@ function CardsHeaderActions() {
       <Pressable onPress={() => router.push('/(tabs)/cards/types')}>
         <Ionicons name="layers-outline" size={24} color={colors.primary} />
       </Pressable>
+      <Pressable onPress={() => router.push('/(tabs)/cards/subcategories')}>
+        <Ionicons name="albums-outline" size={24} color={colors.primary} />
+      </Pressable>
       <Pressable onPress={handleNewCard}>
         <Ionicons
           name="add"
@@ -53,6 +56,10 @@ export default function CardsLayout() {
       />
       <Stack.Screen name="[id]" options={{ ...subScreenOptions, title: 'Card' }} />
       <Stack.Screen name="types" options={{ ...subScreenOptions, title: 'Card Types' }} />
+      <Stack.Screen
+        name="subcategories"
+        options={{ ...subScreenOptions, title: 'Subcategories' }}
+      />
       <Stack.Screen name="priorities" options={{ ...subScreenOptions, title: 'Monthly Priorities' }} />
     </Stack>
   );

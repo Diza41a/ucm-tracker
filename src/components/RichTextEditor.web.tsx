@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
+import { RichTextEditorToolbar } from '@/src/components/RichTextEditorToolbar';
+import { RichTextLinkModal } from '@/src/components/RichTextLinkModal';
+import { richTextEditorStyles, type RichTextToolbarAction } from '@/src/constants/richTextEditor';
 import { colors, radii, typography } from '@/src/constants/theme';
 
 interface RichTextEditorProps {
@@ -9,19 +12,12 @@ interface RichTextEditorProps {
   placeholder?: string;
 }
 
-type ToolbarAction = 'bold' | 'italic' | 'underline' | 'insertUnorderedList' | 'insertOrderedList' | 'h1' | 'h2';
+function getSelectedText() {
+  const selection = window.getSelection();
+  return selection?.toString() ?? '';
+}
 
-const TOOLBAR_ITEMS: { action: ToolbarAction; label: string }[] = [
-  { action: 'bold', label: 'B' },
-  { action: 'italic', label: 'I' },
-  { action: 'underline', label: 'U' },
-  { action: 'insertUnorderedList', label: '•' },
-  { action: 'insertOrderedList', label: '1.' },
-  { action: 'h1', label: 'H1' },
-  { action: 'h2', label: 'H2' },
-];
-
-function runCommand(action: ToolbarAction) {
+function runCommand(action: Exclude<RichTextToolbarAction, 'link'>) {
   if (action === 'h1') {
     document.execCommand('formatBlock', false, 'h1');
     return;
@@ -35,6 +31,8 @@ function runCommand(action: ToolbarAction) {
 
 export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkDefaultTitle, setLinkDefaultTitle] = useState('');
 
   const syncValue = useCallback(() => {
     if (!editorRef.current) return;
@@ -61,6 +59,7 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
         [contenteditable] li {
           font-family: ${typography.editor.stack};
         }
+        ${richTextEditorStyles}
       `;
       document.head.appendChild(style);
     }
@@ -73,24 +72,61 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
     }
   }, [value]);
 
-  const handleToolbarPress = (action: ToolbarAction) => {
+  const handleAction = (action: RichTextToolbarAction) => {
     editorRef.current?.focus();
+
+    if (action === 'link') {
+      setLinkDefaultTitle(getSelectedText());
+      setShowLinkModal(true);
+      return;
+    }
+
     runCommand(action);
+    syncValue();
+  };
+
+  const applyTextColor = (color: string) => {
+    editorRef.current?.focus();
+    document.execCommand('foreColor', false, color);
+    syncValue();
+  };
+
+  const applyHighlightColor = (color: string) => {
+    editorRef.current?.focus();
+    if (color === 'transparent') {
+      document.execCommand('hiliteColor', false, colors.surfaceElevated);
+      syncValue();
+      return;
+    }
+    document.execCommand('hiliteColor', false, color);
+    syncValue();
+  };
+
+  const handleInsertLink = (title: string, url: string) => {
+    editorRef.current?.focus();
+    const selected = getSelectedText();
+
+    if (selected) {
+      document.execCommand('createLink', false, url);
+    } else {
+      document.execCommand(
+        'insertHTML',
+        false,
+        `<a href="${url}" target="_blank" rel="noopener noreferrer">${title}</a>`
+      );
+    }
+
     syncValue();
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.toolbar}>
-        {TOOLBAR_ITEMS.map((item) => (
-          <Pressable
-            key={item.action}
-            style={styles.toolbarBtn}
-            onPress={() => handleToolbarPress(item.action)}>
-            <Text style={styles.toolbarBtnText}>{item.label}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <RichTextEditorToolbar
+        onAction={handleAction}
+        onTextColor={applyTextColor}
+        onHighlightColor={applyHighlightColor}
+      />
+
       <div
         ref={editorRef}
         contentEditable
@@ -111,6 +147,13 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
           outline: 'none',
         }}
       />
+
+      <RichTextLinkModal
+        visible={showLinkModal}
+        defaultTitle={linkDefaultTitle}
+        onClose={() => setShowLinkModal(false)}
+        onSubmit={handleInsertLink}
+      />
     </View>
   );
 }
@@ -123,29 +166,5 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colors.surfaceElevated,
     minHeight: 200,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    backgroundColor: colors.toolbar,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  toolbarBtn: {
-    minWidth: 32,
-    height: 32,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-    backgroundColor: colors.surface,
-  },
-  toolbarBtnText: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
   },
 });

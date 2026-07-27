@@ -33,6 +33,9 @@ export function HtmlContent({ html }: HtmlContentProps) {
         p: { color: colors.textSecondary, marginBottom: 8 },
         li: { color: colors.textSecondary },
         strong: { color: colors.text },
+        a: { color: colors.primaryLight, textDecorationLine: 'underline' },
+        hr: { borderBottomWidth: 1, borderBottomColor: colors.border, marginVertical: 12 },
+        mark: { borderRadius: 3 },
       }}
     />
   );

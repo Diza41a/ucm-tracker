@@ -38,7 +38,7 @@ export function StoryPickerModal({
   onClose,
   onToggle,
   onCreateStory,
-  title = 'Tag stories',
+  title = 'Stories',
   availableScopeLabel = 'Not on log',
   allScopeLabel = 'All stories',
 }: StoryPickerModalProps) {
