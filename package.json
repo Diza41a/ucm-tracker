@@ -1,6 +1,6 @@
 {
   "name": "ucm_tracker",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "1.0.0",
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -18,12 +18,14 @@
     "expo-router": "~57.0.4",
     "expo-secure-store": "^57.0.0",
     "expo-splash-screen": "~57.0.2",
+    "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.0",
     "expo-symbols": "~57.0.0",
     "expo-web-browser": "~57.0.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.0",
+    "react-native-android-widget": "^0.21.0",
     "react-native-calendars": "^1.1314.0",
     "react-native-draggable-flatlist": "^4.0.3",
     "react-native-gesture-handler": "~2.32.0",
@@ -47,7 +49,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:android:local": "JAVA_HOME=\"/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home\" ANDROID_HOME=\"/opt/homebrew/share/android-commandlinetools\" PATH=\"$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH\" eas build --profile preview --platform android --local"
   },
   "private": true
 }

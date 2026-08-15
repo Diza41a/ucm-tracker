@@ -19,6 +19,7 @@ import { appDarkTheme, ThemeProvider } from '@/src/constants/navigation';
 import { colors } from '@/src/constants/theme';
 import { AuthProvider } from '@/src/hooks/useAuth';
 import { QueryProvider } from '@/src/lib/queryClient';
+import { WidgetSyncProvider } from '@/src/components/WidgetSyncProvider';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -60,16 +61,18 @@ export default function RootLayout() {
         <ThemeProvider value={appDarkTheme}>
           <QueryProvider>
             <AuthProvider>
-              <StatusBar style="light" />
-              <Stack
-                screenOptions={{
-                  contentStyle: { backgroundColor: colors.background },
-                  ...(Platform.OS === 'android'
-                    ? { animation: 'fade_from_bottom' as const }
-                    : {}),
-                }}>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              </Stack>
+              <WidgetSyncProvider>
+                <StatusBar style="light" />
+                <Stack
+                  screenOptions={{
+                    contentStyle: { backgroundColor: colors.background },
+                    ...(Platform.OS === 'android'
+                      ? { animation: 'fade_from_bottom' as const }
+                      : {}),
+                  }}>
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                </Stack>
+              </WidgetSyncProvider>
             </AuthProvider>
           </QueryProvider>
         </ThemeProvider>

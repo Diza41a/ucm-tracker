@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router';
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -30,6 +29,7 @@ import {
   useUpdateLogTemplate,
 } from '@/src/hooks/useLogTemplates';
 import type { LogTemplate } from '@/src/types';
+import { confirmDestructive, showAlert } from '@/src/utils/confirm';
 
 export default function LogTemplatesScreen() {
   const navigation = useNavigation();
@@ -82,7 +82,7 @@ export default function LogTemplatesScreen() {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Validation', 'Template name is required.');
+      showAlert('Validation', 'Template name is required.');
       return;
     }
 
@@ -101,19 +101,21 @@ export default function LogTemplatesScreen() {
 
       resetForm();
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to save');
+      showAlert('Error', e instanceof Error ? e.message : 'Failed to save');
     }
   };
 
-  const handleDelete = (id: string) => {
-    Alert.alert('Delete template', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => deleteTemplate.mutateAsync(id),
-      },
-    ]);
+  const handleDelete = (template: LogTemplate) => {
+    confirmDestructive(
+      'Delete template',
+      `"${template.name}" will be permanently deleted. This cannot be undone.`,
+      async () => {
+        await deleteTemplate.mutateAsync(template.id);
+        if (editing?.id === template.id) {
+          resetForm();
+        }
+      }
+    );
   };
 
   if (isLoading) return <LoadingState />;
@@ -129,6 +131,7 @@ export default function LogTemplatesScreen() {
       <FlatList
         data={visibleTemplates}
         keyExtractor={(item) => item.id}
+        keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           isEditingForm ? (
             <View style={styles.editor}>
@@ -199,9 +202,13 @@ export default function LogTemplatesScreen() {
               <Pressable onPress={() => startEdit(item)} hitSlop={8}>
                 <Ionicons name="create-outline" size={18} color={colors.primary} />
               </Pressable>
-              <Pressable onPress={() => handleDelete(item.id)} hitSlop={8}>
-                <Ionicons name="trash-outline" size={18} color={colors.danger} />
-              </Pressable>
+              <IconButton
+                icon="trash-outline"
+                onPress={() => handleDelete(item)}
+                variant="danger"
+                size={18}
+                disabled={deleteTemplate.isPending}
+              />
             </View>
           </View>
         )}

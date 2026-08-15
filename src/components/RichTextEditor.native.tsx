@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { RichEditor } from 'react-native-pell-rich-editor';
 
@@ -17,6 +17,7 @@ import {
 } from '@/src/constants/theme';
 import { useRichTextEditorContent } from '@/src/hooks/useRichTextEditorContent';
 import { useRichTextEditorExpand } from '@/src/hooks/useRichTextEditorExpand';
+import { buildLinkHtml } from '@/src/utils/richTextLink';
 
 interface RichTextEditorProps {
   value: string;
@@ -57,26 +58,32 @@ export function RichTextEditor({ value, onChange, placeholder, footer, showFoote
   const lastExternalSyncGeneration = useRef(externalSyncGeneration);
 
   useLayoutEffect(() => {
-    const isExternalSync = externalSyncGeneration !== lastExternalSyncGeneration.current;
+    if (externalSyncGeneration === lastExternalSyncGeneration.current) {
+      return;
+    }
+
     lastExternalSyncGeneration.current = externalSyncGeneration;
-    applyEditorHtml(editorHtml, isExternalSync);
+    applyEditorHtml(editorHtml, true);
   }, [applyEditorHtml, editorHtml, externalSyncGeneration]);
 
   useLayoutEffect(() => {
     const timer = setTimeout(() => {
-      applyEditorHtml(contentRef.current);
+      applyEditorHtml(contentRef.current, true);
     }, 0);
 
     return () => clearTimeout(timer);
   }, [applyEditorHtml, contentRef, expanded]);
 
-  const handleChange = (html: string) => {
-    if (skipProgrammaticChange.current) {
-      skipProgrammaticChange.current = false;
-      return;
-    }
-    commitHtml(html);
-  };
+  const handleChange = useCallback(
+    (html: string) => {
+      if (skipProgrammaticChange.current) {
+        skipProgrammaticChange.current = false;
+        return;
+      }
+      commitHtml(html);
+    },
+    [commitHtml]
+  );
 
   const handleAction = (action: RichTextToolbarAction) => {
     switch (action) {
@@ -139,22 +146,31 @@ export function RichTextEditor({ value, onChange, placeholder, footer, showFoote
   const handleInsertLink = (title: string, url: string) => {
     editorRef.current?.focusContentEditor();
     setTimeout(() => {
-      editorRef.current?.insertLink(title, url);
+      editorRef.current?.insertHTML(buildLinkHtml(title, url));
     }, 0);
   };
 
-  const editorProps = {
-    initialContentHTML: contentRef.current,
-    onChange: handleChange,
-    placeholder: placeholder ?? 'Write notes...',
-    editorStyle: {
+  const editorStyle = useMemo(
+    () => ({
       backgroundColor: colors.surfaceElevated,
       color: colors.text,
       placeholderColor: colors.textMuted,
       initialCSSText: editorFontImportCss,
       contentCSSText: `${editorContentCssText} ${richTextEditorStyles}`,
-    },
-  };
+    }),
+    []
+  );
+
+  const editorProps = useMemo(
+    () => ({
+      initialContentHTML: contentRef.current,
+      onChange: handleChange,
+      placeholder: placeholder ?? 'Write notes...',
+      editorStyle,
+      defaultHttps: false,
+    }),
+    [editorStyle, expanded, handleChange, placeholder]
+  );
 
   const renderEditor = (layout: RichTextEditorLayout) => {
     const isExpanded = layout === 'expanded';

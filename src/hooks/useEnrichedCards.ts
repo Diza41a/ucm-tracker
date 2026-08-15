@@ -1,7 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 
 import type { Card } from '@/src/types';
-import { enrichCardsWithSubcategories, mergeCardsWithCatalog } from '@/src/utils/cardRelations';
+import {
+  enrichCardsWithSubcategories,
+  enrichCardsWithTypes,
+  mergeCardsWithCatalog,
+} from '@/src/utils/cardRelations';
 
 function cardIdsKey(cards: Card[]) {
   return cards
@@ -19,7 +23,8 @@ export function useEnrichedCards(cards: Card[], catalog: Card[] = []) {
     queryKey: ['enrichedCards', cardIds, catalogIds] as const,
     queryFn: async () => {
       const merged = mergeCardsWithCatalog(cards, catalog);
-      return enrichCardsWithSubcategories(merged);
+      const withTypes = await enrichCardsWithTypes(merged);
+      return enrichCardsWithSubcategories(withTypes);
     },
     enabled: cards.length > 0,
     placeholderData: (previous) => previous ?? mergeCardsWithCatalog(cards, catalog),

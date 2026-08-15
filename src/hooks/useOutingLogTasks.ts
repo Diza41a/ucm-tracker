@@ -124,6 +124,10 @@ export function useSaveOutingLogTasks() {
       } else {
         queryClient.invalidateQueries({ queryKey: monthKey });
       }
+
+      void import('@/src/widgets/syncWidgetSnapshot').then(({ refreshAndroidWidgets }) =>
+        refreshAndroidWidgets()
+      );
     },
   });
 }

@@ -67,12 +67,15 @@ export function RichTextLinkModal({
             style={formStyles.input}
             value={url}
             onChangeText={setUrl}
-            placeholder="https://..."
+            placeholder="obsidian://... or example.com"
             placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             autoCorrect={false}
-            keyboardType="url"
           />
+          <Text style={styles.hint}>
+            Use a full app link (obsidian://, notion://) or a web address. Plain domains get https://
+            added automatically.
+          </Text>
 
           <View style={styles.actions}>
             <Pressable style={styles.cancelBtn} onPress={onClose}>
@@ -118,6 +121,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.textSecondary,
+  },
+  hint: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.textMuted,
   },
   actions: {
     flexDirection: 'row',

@@ -7,17 +7,23 @@ import {
   cardTableGroupLabel,
   cardTableSubgroupLabel,
   normalizeGroupSettings,
+  type CardPoolViewMode,
   type CardTableGroupBy,
   type CardTableSubgroupBy,
 } from '@/src/utils/cardTable';
 
-interface CardTableLayoutBarProps {
+interface CardPoolLayoutBarProps {
+  poolViewMode: CardPoolViewMode;
   groupBy: CardTableGroupBy;
   subgroupBy: CardTableSubgroupBy;
   showReset: boolean;
+  showSort?: boolean;
+  sortActive?: boolean;
+  onPoolViewModeChange: (mode: CardPoolViewMode) => void;
   onGroupByChange: (groupBy: CardTableGroupBy) => void;
   onSubgroupByChange: (subgroupBy: CardTableSubgroupBy) => void;
   onReset: () => void;
+  onSortPress?: () => void;
 }
 
 function PopoverOption({
@@ -46,14 +52,19 @@ function PopoverOption({
   );
 }
 
-export function CardTableLayoutBar({
+export function CardPoolLayoutBar({
+  poolViewMode,
   groupBy,
   subgroupBy,
   showReset,
+  showSort = false,
+  sortActive = false,
+  onPoolViewModeChange,
   onGroupByChange,
   onSubgroupByChange,
   onReset,
-}: CardTableLayoutBarProps) {
+  onSortPress,
+}: CardPoolLayoutBarProps) {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const groupingActive = groupBy !== 'none';
 
@@ -80,15 +91,57 @@ export function CardTableLayoutBar({
   return (
     <>
       <View style={styles.toolbar}>
+        <View style={styles.viewToggle}>
+          <Pressable
+            style={[styles.viewBtn, poolViewMode === 'list' && styles.viewBtnActive]}
+            onPress={() => onPoolViewModeChange('list')}
+            hitSlop={4}
+            accessibilityLabel="List view"
+            accessibilityRole="button">
+            <Ionicons
+              name="list-outline"
+              size={20}
+              color={poolViewMode === 'list' ? colors.primaryLight : colors.textSecondary}
+            />
+          </Pressable>
+          <Pressable
+            style={[styles.viewBtn, poolViewMode === 'table' && styles.viewBtnActive]}
+            onPress={() => onPoolViewModeChange('table')}
+            hitSlop={4}
+            accessibilityLabel="Table view"
+            accessibilityRole="button">
+            <Ionicons
+              name="grid-outline"
+              size={20}
+              color={poolViewMode === 'table' ? colors.primaryLight : colors.textSecondary}
+            />
+          </Pressable>
+        </View>
+
         <View style={styles.actions}>
           {showReset ? (
             <Pressable
               style={styles.iconBtn}
               onPress={onReset}
               hitSlop={8}
-              accessibilityLabel="Reset table settings"
+              accessibilityLabel="Reset pool settings"
               accessibilityRole="button">
               <Ionicons name="refresh-outline" size={20} color={colors.primary} />
+            </Pressable>
+          ) : null}
+
+          {showSort && onSortPress ? (
+            <Pressable
+              style={[styles.iconBtn, sortActive && styles.iconBtnActive]}
+              onPress={onSortPress}
+              hitSlop={8}
+              accessibilityLabel="Sort options"
+              accessibilityRole="button">
+              <Ionicons
+                name="swap-vertical-outline"
+                size={20}
+                color={sortActive ? colors.primaryLight : colors.textSecondary}
+              />
             </Pressable>
           ) : null}
 
@@ -158,10 +211,30 @@ const styles = StyleSheet.create({
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     marginHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     gap: spacing.md,
+  },
+  viewToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    padding: 2,
+    gap: 2,
+  },
+  viewBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewBtnActive: {
+    backgroundColor: colors.selected,
   },
   actions: {
     flexDirection: 'row',

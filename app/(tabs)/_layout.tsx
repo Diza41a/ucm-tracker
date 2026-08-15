@@ -45,24 +45,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="stories"
-        listeners={createTabPressToRootListener('stories')}
+        name="library"
+        listeners={createTabPressToRootListener('library')}
         options={{
-          title: 'Stories',
+          title: 'Library',
           headerShown: false,
           tabBarIcon: ({ color }) => (
-            <Ionicons name="book-outline" size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="cards"
-        listeners={createTabPressToRootListener('cards')}
-        options={{
-          title: 'Cards',
-          headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="albums-outline" size={22} color={color} />
+            <Ionicons name="library-outline" size={22} color={color} />
           ),
         }}
       />
@@ -78,14 +67,42 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="settings"
-        listeners={createTabPressToRootListener('settings')}
+        name="more"
+        listeners={createTabPressToRootListener('more')}
         options={{
-          title: 'Settings',
+          title: 'More',
           headerShown: false,
           tabBarIcon: ({ color }) => (
-            <Ionicons name="settings-outline" size={22} color={color} />
+            <Ionicons name="ellipsis-horizontal-circle-outline" size={22} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="cards"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="stories"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="practice"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          href: null,
+          headerShown: false,
         }}
       />
     </Tabs>

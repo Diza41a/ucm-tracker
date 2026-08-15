@@ -16,6 +16,7 @@ import { InlineEmptyState } from '@/src/components/StateViews';
 import { supportsNativeDragAndDrop } from '@/src/constants/platform';
 import { FormField } from '@/src/components/ui/FormField';
 import { colors, radii, spacing } from '@/src/constants/theme';
+import { SAVE_DEBOUNCE_MS } from '@/src/constants/timing';
 import {
   createTempTask,
   mergeSavedWithDrafts,
@@ -31,8 +32,6 @@ interface OutingLogTasksProps {
   serverTasks?: OutingLogTask[];
   defaultTemplateId?: string | null;
 }
-
-const SAVE_DEBOUNCE_MS = 500;
 
 export function OutingLogTasks({
   logDate,

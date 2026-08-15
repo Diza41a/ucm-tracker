@@ -1,4 +1,5 @@
-import type { Card, CardSubcategory, Story } from '@/src/types';
+import type { Card, CardSubcategory, CardType, Story } from '@/src/types';
+import { cardHasType } from '@/src/utils/cardTypes';
 
 export type CompletedFilterValue = 'done' | 'not_done';
 export type DifficultyFilterValue = 'easy' | 'medium' | 'hard';
@@ -129,6 +130,21 @@ export function difficultyFilterLabel(value: DifficultyFilterValue) {
   return '8-10';
 }
 
+export function countActiveCardFilters(filters: CardFilterState): number {
+  let count = 0;
+  if (filters.search.trim()) count += 1;
+  count += filters.filterTypeIds.length;
+  count += filters.filterSubcategoryIds.length;
+  count += filters.filterCompleted.length;
+  count += filters.filterDifficulties.length;
+  if (filters.filterStoryId) count += 1;
+  return count;
+}
+
+export function hasActiveCardFilters(filters: CardFilterState): boolean {
+  return countActiveCardFilters(filters) > 0;
+}
+
 export function pruneStaleCardFilters(
   filters: CardFilterState,
   cardTypes: CardType[],
@@ -170,7 +186,9 @@ export function filterCards(cards: Card[], filters: CardFilterState): Card[] {
   let result = cards;
 
   if (filters.filterTypeIds.length) {
-    result = result.filter((card) => filters.filterTypeIds.includes(card.card_type_id));
+    result = result.filter((card) =>
+      filters.filterTypeIds.some((typeId) => cardHasType(card, typeId))
+    );
   }
 
   if (filters.filterSubcategoryIds.length) {
@@ -229,7 +247,10 @@ export function getLinkedStoriesFromCards(cards: Card[]): Story[] {
 }
 
 export function cardMatchesColumnFilters(card: Card, filters: CardFilterState) {
-  if (filters.filterTypeIds.length && !filters.filterTypeIds.includes(card.card_type_id)) {
+  if (
+    filters.filterTypeIds.length &&
+    !filters.filterTypeIds.some((typeId) => cardHasType(card, typeId))
+  ) {
     return false;
   }
   if (

@@ -16,21 +16,18 @@ import {
   View,
 } from 'react-native';
 
-import { CardTypePickerSheet } from '@/src/components/CardTableCellEditSheets';
-import { CardTableLayoutBar } from '@/src/components/CardTableLayoutBar';
 import { CardTablePaginationBar } from '@/src/components/CardTablePaginationBar';
 import { CardBadge } from '@/src/components/CardBadge';
 import { CardSubcategoryBadge } from '@/src/components/CardSubcategoryBadge';
-import { EmptyState, LoadingState } from '@/src/components/StateViews';
+import { EmptyState } from '@/src/components/StateViews';
 import { MultiSelectSheet } from '@/src/components/ui/MultiSelectSheet';
 import { colors, radii, spacing } from '@/src/constants/theme';
 import { useCardSubcategories } from '@/src/hooks/useCardSubcategories';
-import { useCardTableSettings } from '@/src/hooks/useCardTableSettings';
 import { useCardTypes } from '@/src/hooks/useCardTypes';
 import { useToggleCardCompletedOnce, useUpdateCardTableFields } from '@/src/hooks/useCards';
 import type { Card } from '@/src/types';
+import { getCardTypeIds, getCardTypes } from '@/src/utils/cardTypes';
 import {
-  pruneStaleCardFilters,
   type CompletedFilterValue,
   type DifficultyFilterValue,
 } from '@/src/utils/cardFilters';
@@ -42,17 +39,22 @@ import {
   getSortLevelForField,
   getTableCards,
   getVisibleTableColumns,
-  hasCustomCardTableSettings,
   paginateTableCards,
   SORT_FIELD_BY_COLUMN,
   type CardTableColumnKey,
   type CardTablePageSize,
+  type CardTableSettings,
   type CardTableSortField,
 } from '@/src/utils/cardTable';
+import type { CardFilterState } from '@/src/utils/cardFilters';
 
 interface CardTableViewProps {
   cards: Card[];
   emptyMessage: string;
+  settings: CardTableSettings;
+  onSettingsChange: (patch: Partial<CardTableSettings>) => void;
+  onColumnFiltersChange: (patch: Partial<CardFilterState>) => void;
+  onColumnWidthChange: (key: CardTableColumnKey, width: number) => void;
 }
 
 type ActiveSheet =
@@ -459,16 +461,22 @@ function SearchFilterSheet({
   );
 }
 
-export function CardTableView({ cards, emptyMessage }: CardTableViewProps) {
+export function CardTableView({
+  cards,
+  emptyMessage,
+  settings,
+  onSettingsChange,
+  onColumnFiltersChange,
+  onColumnWidthChange,
+}: CardTableViewProps) {
   const { width: windowWidth } = useWindowDimensions();
   const { data: cardTypes } = useCardTypes();
   const { data: subcategories } = useCardSubcategories();
-  const { settings, loaded, updateSettings, updateColumnFilters, updateColumnWidth, resetSettings } =
-    useCardTableSettings();
   const toggleCompletedOnce = useToggleCardCompletedOnce();
   const updateCardFields = useUpdateCardTableFields();
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const [cellEdit, setCellEdit] = useState<CellEditSheet>(null);
+  const [typeDraftIds, setTypeDraftIds] = useState<string[]>([]);
   const [subcategoryDraftIds, setSubcategoryDraftIds] = useState<string[]>([]);
   const [inlineEdit, setInlineEdit] = useState<InlineEditState | null>(null);
   const [focusedCell, setFocusedCell] = useState<CellCoordinate | null>(null);
@@ -505,22 +513,16 @@ export function CardTableView({ cards, emptyMessage }: CardTableViewProps) {
   );
 
   useEffect(() => {
+    if (cellEdit?.kind !== 'type') return;
+    setTypeDraftIds(getCardTypeIds(cellEdit.card));
+  }, [cellEdit]);
+
+  useEffect(() => {
     if (cellEdit?.kind !== 'subcategory') return;
     setSubcategoryDraftIds(
       cellEdit.card.subcategories?.map((subcategory) => subcategory.id) ?? []
     );
   }, [cellEdit]);
-
-  useEffect(() => {
-    if (!loaded || cardTypes === undefined || subcategories === undefined) return;
-    const pruned = pruneStaleCardFilters(
-      settings.columnFilters,
-      cardTypes,
-      subcategories,
-      cards
-    );
-    if (pruned) updateColumnFilters(pruned);
-  }, [loaded, cards, cardTypes, subcategories, settings.columnFilters, updateColumnFilters]);
 
   useEffect(() => {
     setPage(1);
@@ -681,7 +683,7 @@ export function CardTableView({ cards, emptyMessage }: CardTableViewProps) {
     : availableWidth;
 
   const setSort = (field: CardTableSortField) => {
-    updateSettings({
+    onSettingsChange({
       sortLevels: cycleSortLevels(settings.sortLevels, field),
     });
   };
@@ -737,7 +739,7 @@ export function CardTableView({ cards, emptyMessage }: CardTableViewProps) {
               setResizeDraft({ key: columnKey, width: clampColumnWidth(columnKey, width) })
             }
             onResizeCommit={(width) => {
-              updateColumnWidth(columnKey, width);
+              onColumnWidthChange(columnKey, width);
               setResizeDraft(null);
             }}
             align={textAlign}
@@ -811,8 +813,12 @@ export function CardTableView({ cards, emptyMessage }: CardTableViewProps) {
             isDisabled={isSaving}
             onPress={isSaving ? undefined : () => handleCellPress(columnKey, card)}>
             {columnKey === 'type' ? (
-              card.card_type ? (
-                <CardBadge cardType={card.card_type} compact />
+              getCardTypes(card).length ? (
+                <View style={styles.subcategoryStack}>
+                  {getCardTypes(card).map((type) => (
+                    <CardBadge key={type.id} cardType={type} compact />
+                  ))}
+                </View>
               ) : (
                 <Text style={styles.emptyCell}>Tap to set</Text>
               )
@@ -846,9 +852,15 @@ export function CardTableView({ cards, emptyMessage }: CardTableViewProps) {
     </View>
   );
 
-  if (!loaded) {
-    return <LoadingState />;
-  }
+  const handlePageSizeChange = (pageSize: CardTablePageSize) => {
+    onSettingsChange({ pageSize });
+  };
+
+  const openSubcategoriesManager = () => {
+    setActiveSheet(null);
+    closeCellEdit();
+    router.push('/(tabs)/cards/subcategories');
+  };
 
   const tableBody = (
     <FlatList
@@ -913,27 +925,8 @@ export function CardTableView({ cards, emptyMessage }: CardTableViewProps) {
     />
   );
 
-  const handlePageSizeChange = (pageSize: CardTablePageSize) => {
-    updateSettings({ pageSize });
-  };
-
-  const openSubcategoriesManager = () => {
-    setActiveSheet(null);
-    closeCellEdit();
-    router.push('/(tabs)/cards/subcategories');
-  };
-
   return (
     <View style={styles.page}>
-      <CardTableLayoutBar
-        groupBy={settings.groupBy}
-        subgroupBy={settings.subgroupBy}
-        showReset={hasCustomCardTableSettings(settings)}
-        onGroupByChange={(groupBy) => updateSettings({ groupBy })}
-        onSubgroupByChange={(subgroupBy) => updateSettings({ subgroupBy })}
-        onReset={resetSettings}
-      />
-
       <View style={styles.tableFrame}>
         {needsHorizontalScroll ? (
           <ScrollView
@@ -963,7 +956,7 @@ export function CardTableView({ cards, emptyMessage }: CardTableViewProps) {
       <SearchFilterSheet
         visible={activeSheet === 'filterSearch'}
         value={columnFilters.search}
-        onChange={(search) => updateColumnFilters({ search })}
+        onChange={(search) => onColumnFiltersChange({ search })}
         onClose={() => setActiveSheet(null)}
       />
 
@@ -972,7 +965,7 @@ export function CardTableView({ cards, emptyMessage }: CardTableViewProps) {
         title="Filter by type"
         selectedValues={columnFilters.filterTypeIds}
         onClose={() => setActiveSheet(null)}
-        onChange={(filterTypeIds) => updateColumnFilters({ filterTypeIds })}
+        onChange={(filterTypeIds) => onColumnFiltersChange({ filterTypeIds })}
         options={(cardTypes ?? []).map((type) => ({ value: type.id, label: type.name }))}
       />
 
@@ -981,7 +974,7 @@ export function CardTableView({ cards, emptyMessage }: CardTableViewProps) {
         title="Filter by subcategory"
         selectedValues={columnFilters.filterSubcategoryIds}
         onClose={() => setActiveSheet(null)}
-        onChange={(filterSubcategoryIds) => updateColumnFilters({ filterSubcategoryIds })}
+        onChange={(filterSubcategoryIds) => onColumnFiltersChange({ filterSubcategoryIds })}
         options={(subcategories ?? []).map((subcategory) => ({
           value: subcategory.id,
           label: subcategory.name,
@@ -997,7 +990,7 @@ export function CardTableView({ cards, emptyMessage }: CardTableViewProps) {
         selectedValues={columnFilters.filterDifficulties}
         onClose={() => setActiveSheet(null)}
         onChange={(filterDifficulties) =>
-          updateColumnFilters({
+          onColumnFiltersChange({
             filterDifficulties: filterDifficulties as DifficultyFilterValue[],
           })
         }
@@ -1014,7 +1007,7 @@ export function CardTableView({ cards, emptyMessage }: CardTableViewProps) {
         selectedValues={columnFilters.filterCompleted}
         onClose={() => setActiveSheet(null)}
         onChange={(filterCompleted) =>
-          updateColumnFilters({
+          onColumnFiltersChange({
             filterCompleted: filterCompleted as CompletedFilterValue[],
           })
         }
@@ -1024,17 +1017,18 @@ export function CardTableView({ cards, emptyMessage }: CardTableViewProps) {
         ]}
       />
 
-      <CardTypePickerSheet
+      <MultiSelectSheet
         visible={cellEdit?.kind === 'type'}
-        cardTypes={cardTypes ?? []}
-        selectedTypeId={cellEdit?.kind === 'type' ? cellEdit.card.card_type_id : ''}
-        onSelect={(typeId) => {
+        title="Card types"
+        selectedValues={typeDraftIds}
+        onClose={closeCellEdit}
+        onChange={(card_type_ids) => {
           if (cellEdit?.kind !== 'type') return;
-          const cardId = cellEdit.card.id;
-          setFocusedCell(null);
-          setSavingCell({ cardId, columnKey: 'type' });
+          if (!card_type_ids.length) return;
+          setTypeDraftIds(card_type_ids);
+          setSavingCell({ cardId: cellEdit.card.id, columnKey: 'type' });
           updateCardFields.mutate(
-            { id: cardId, card_type_id: typeId },
+            { id: cellEdit.card.id, card_type_ids },
             {
               onSuccess: () => setCellEdit(null),
               onError: showSaveError,
@@ -1042,7 +1036,14 @@ export function CardTableView({ cards, emptyMessage }: CardTableViewProps) {
             }
           );
         }}
-        onClose={closeCellEdit}
+        options={(cardTypes ?? []).map((type) => ({
+          value: type.id,
+          label: type.name,
+        }))}
+        emptyMessage="No card types yet. Create one to categorize cards."
+        emptyActionLabel="Manage card types"
+        onEmptyAction={() => router.push('/(tabs)/cards/types')}
+        emptyIcon="layers-outline"
       />
 
       <MultiSelectSheet

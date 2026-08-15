@@ -69,8 +69,8 @@ export function useDeleteCardType() {
   return useMutation({
     mutationFn: async (id: string) => {
       const { count, error: countError } = await supabase
-        .from('cards')
-        .select('id', { count: 'exact', head: true })
+        .from('card_card_types')
+        .select('card_id', { count: 'exact', head: true })
         .eq('card_type_id', id);
 
       if (countError) throw countError;

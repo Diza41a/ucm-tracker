@@ -19,11 +19,13 @@ import {
 
 import { CardMetaChips } from '@/src/components/CardMetaChips';
 import { CardPreviewModal } from '@/src/components/CardPreviewModal';
+import { MonthlyCardFilterBar } from '@/src/components/MonthlyCardFilterBar';
 import { MonthlyCardSelectionModal } from '@/src/components/MonthlyCardSelectionModal';
 import { InlineEmptyState } from '@/src/components/StateViews';
 import { CollapsibleFormField } from '@/src/components/ui/CollapsibleFormField';
 import { supportsNativeDragAndDrop } from '@/src/constants/platform';
 import { colors, radii, spacing, surfaceShadow } from '@/src/constants/theme';
+import { SAVE_DEBOUNCE_MS } from '@/src/constants/timing';
 import { useCardTypes } from '@/src/hooks/useCardTypes';
 import { useCards, useToggleCardCompletedOnce } from '@/src/hooks/useCards';
 import {
@@ -32,6 +34,14 @@ import {
 } from '@/src/hooks/useMonthlyPriorities';
 import { useEnrichedCards } from '@/src/hooks/useEnrichedCards';
 import type { Card } from '@/src/types';
+import {
+  DEFAULT_CARD_FILTER_STATE,
+  filterCards,
+  toggleFilterValue,
+  type CompletedFilterValue,
+  type DifficultyFilterValue,
+} from '@/src/utils/cardFilters';
+import { formatMonthYear } from '@/src/utils/display';
 import { mergeCardsWithCatalog } from '@/src/utils/cardRelations';
 import { moveListItem } from '@/src/utils/reorderList';
 
@@ -65,20 +75,39 @@ function applyCompletionToggle(cards: Card[], cardId: string, completed: boolean
 }
 
 export function MonthlyCardPriorities({ year, month }: MonthlyCardPrioritiesProps) {
+  const monthKey = `${year}-${month}`;
   const { data: cards } = useCards();
   const { data: cardTypes } = useCardTypes();
-  const { data: priorities } = useMonthlyPriorities(year, month);
+  const { data: priorities, isFetching } = useMonthlyPriorities(year, month);
   const savePriorities = useSaveMonthlyPriorities();
   const toggleCompletedOnce = useToggleCardCompletedOnce();
 
   const [orderedCards, setOrderedCards] = useState<Card[]>([]);
   const [showSelectionModal, setShowSelectionModal] = useState(false);
   const [previewCard, setPreviewCard] = useState<Card | null>(null);
+  const [filterCompleted, setFilterCompleted] = useState<CompletedFilterValue[]>([]);
+  const [filterDifficulties, setFilterDifficulties] = useState<DifficultyFilterValue[]>([]);
   const lastSavedKey = useRef('');
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHydrating = useRef(false);
+  const loadedMonthKey = useRef<string | null>(null);
 
   useEffect(() => {
+    isHydrating.current = true;
+    loadedMonthKey.current = null;
+    lastSavedKey.current = '';
+    setOrderedCards([]);
+    setFilterCompleted([]);
+    setFilterDifficulties([]);
+    if (saveTimeout.current) {
+      clearTimeout(saveTimeout.current);
+      saveTimeout.current = null;
+    }
+  }, [monthKey]);
+
+  useEffect(() => {
+    if (isFetching || loadedMonthKey.current === monthKey) return;
+
     isHydrating.current = true;
     const fromServer =
       priorities
@@ -89,12 +118,13 @@ export function MonthlyCardPriorities({ year, month }: MonthlyCardPrioritiesProp
     const nextKey = cardIdsKey(fromServer);
     lastSavedKey.current = nextKey;
     setOrderedCards(merged);
+    loadedMonthKey.current = monthKey;
 
     const frame = requestAnimationFrame(() => {
       isHydrating.current = false;
     });
     return () => cancelAnimationFrame(frame);
-  }, [priorities, year, month, cards]);
+  }, [priorities, isFetching, monthKey, cards]);
 
   useEffect(() => {
     return () => {
@@ -124,7 +154,7 @@ export function MonthlyCardPriorities({ year, month }: MonthlyCardPrioritiesProp
         } catch (e) {
           Alert.alert('Error', e instanceof Error ? e.message : 'Failed to save priorities');
         }
-      }, 500);
+      }, SAVE_DEBOUNCE_MS);
     },
     [month, savePriorities, year]
   );
@@ -177,6 +207,18 @@ export function MonthlyCardPriorities({ year, month }: MonthlyCardPrioritiesProp
   const displayCards =
     enrichedQuery.data ?? mergeCardsWithCatalog(orderedCards, catalog);
 
+  const hasActiveFilters = filterCompleted.length > 0 || filterDifficulties.length > 0;
+  const visibleCards = useMemo(() => {
+    if (!hasActiveFilters) return displayCards;
+    return filterCards(displayCards, {
+      ...DEFAULT_CARD_FILTER_STATE,
+      filterCompleted,
+      filterDifficulties,
+    });
+  }, [displayCards, filterCompleted, filterDifficulties, hasActiveFilters]);
+
+  const monthLabel = formatMonthYear(year, month);
+
   const previewCardResolved = useMemo(() => {
     if (!previewCard) return null;
     return displayCards.find((card) => card.id === previewCard.id) ?? previewCard;
@@ -196,7 +238,14 @@ export function MonthlyCardPriorities({ year, month }: MonthlyCardPrioritiesProp
     return (
       <View style={[styles.cardRow, isActive && styles.cardRowActive]}>
         <View style={[styles.cardTile, isActive && styles.cardTileActive]}>
-          <View style={styles.cardTopActions}>
+          <CardPressable style={styles.cardBody} onPress={() => setPreviewCard(item)}>
+            <CardMetaChips card={item} compact />
+            <Text style={styles.cardAction} numberOfLines={4}>
+              {item.action}
+            </Text>
+            <Text style={styles.cardDifficulty}>{item.difficulty}/10</Text>
+          </CardPressable>
+          <View style={styles.cardActionsRow}>
             <CardPressable
               onPress={() => handleToggleComplete(item)}
               hitSlop={8}
@@ -246,13 +295,6 @@ export function MonthlyCardPriorities({ year, month }: MonthlyCardPrioritiesProp
               </View>
             ) : null}
           </View>
-          <CardPressable style={styles.cardBody} onPress={() => setPreviewCard(item)}>
-            <CardMetaChips card={item} compact />
-            <Text style={styles.cardAction} numberOfLines={4}>
-              {item.action}
-            </Text>
-            <Text style={styles.cardDifficulty}>{item.difficulty}/10</Text>
-          </CardPressable>
         </View>
       </View>
     );
@@ -268,12 +310,12 @@ export function MonthlyCardPriorities({ year, month }: MonthlyCardPrioritiesProp
     <View style={styles.section}>
       <CollapsibleFormField
         icon="reorder-four-outline"
-        title="Monthly focus cards"
+        title={`Monthly focus · ${monthLabel}`}
         defaultExpanded
         style={styles.collapsibleField}
         action={
           <View style={styles.headerActions}>
-            {savePriorities.isPending ? (
+            {savePriorities.isPending || isFetching ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : null}
             <Pressable
@@ -284,7 +326,25 @@ export function MonthlyCardPriorities({ year, month }: MonthlyCardPrioritiesProp
             </Pressable>
           </View>
         }>
-        {displayCards.length === 0 ? (
+        {displayCards.length > 0 ? (
+          <MonthlyCardFilterBar
+            filterCompleted={filterCompleted}
+            filterDifficulties={filterDifficulties}
+            onToggleCompleted={(value) =>
+              setFilterCompleted((prev) => toggleFilterValue(prev, value))
+            }
+            onToggleDifficulty={(value) =>
+              setFilterDifficulties((prev) => toggleFilterValue(prev, value))
+            }
+            onClear={() => {
+              setFilterCompleted([]);
+              setFilterDifficulties([]);
+            }}
+          />
+        ) : null}
+        {isFetching && displayCards.length === 0 ? (
+          <ActivityIndicator size="small" color={colors.primary} style={styles.loading} />
+        ) : displayCards.length === 0 ? (
           <InlineEmptyState
             icon="albums-outline"
             message="Choose which cards to focus on this month."
@@ -300,6 +360,23 @@ export function MonthlyCardPriorities({ year, month }: MonthlyCardPrioritiesProp
             }}
             compact
           />
+        ) : hasActiveFilters && visibleCards.length === 0 ? (
+          <InlineEmptyState
+            icon="filter-outline"
+            message="No cards match these filters."
+            actionLabel="Clear filters"
+            onAction={() => {
+              setFilterCompleted([]);
+              setFilterDifficulties([]);
+            }}
+            compact
+          />
+        ) : hasActiveFilters ? (
+          <View style={styles.cardsList}>
+            {visibleCards.map((item) => (
+              <View key={item.id}>{renderCardTile(item)}</View>
+            ))}
+          </View>
         ) : supportsNativeDragAndDrop ? (
           <NestableDraggableFlatList
             data={displayCards}
@@ -326,6 +403,8 @@ export function MonthlyCardPriorities({ year, month }: MonthlyCardPrioritiesProp
         allCards={catalog}
         selectedCards={displayCards}
         onChange={handleSelectionChange}
+        year={year}
+        month={month}
       />
 
       <CardPreviewModal
@@ -356,6 +435,10 @@ const styles = StyleSheet.create({
   manageBtn: {
     padding: 2,
   },
+  loading: {
+    alignSelf: 'center',
+    marginVertical: spacing.md,
+  },
   collapsibleField: {
     overflow: 'visible',
   },
@@ -375,25 +458,28 @@ const styles = StyleSheet.create({
     ...surfaceShadow('lg'),
   },
   cardTile: {
-    minHeight: 120,
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    overflow: 'visible',
+    overflow: 'hidden',
   },
   cardTileActive: {
-    overflow: 'visible',
     borderColor: colors.primary,
   },
-  cardTopActions: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
+  cardBody: {
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  cardActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    zIndex: 2,
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
   },
   dragHandle: {
     padding: 2,
@@ -408,14 +494,7 @@ const styles = StyleSheet.create({
   webReorderBtnDisabled: {
     opacity: 0.35,
   },
-  cardBody: {
-    padding: spacing.md,
-    gap: spacing.sm,
-    overflow: 'visible',
-    paddingRight: 52,
-  },
   cardAction: {
-    flex: 1,
     fontSize: 15,
     color: colors.text,
     fontWeight: '500',

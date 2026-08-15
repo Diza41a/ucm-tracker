@@ -4,11 +4,10 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 
 import { colors, radii, spacing } from '@/src/constants/theme';
 import { formStyles } from '@/src/constants/form';
+import { WIN_SAVE_DEBOUNCE_MS } from '@/src/constants/timing';
 import { useToggleDailyWinStar, useUpsertDailyWin } from '@/src/hooks/useDailyWins';
 import { showAlert } from '@/src/utils/confirm';
 import { formatWinDayLabel } from '@/src/utils/display';
-
-const WIN_SAVE_DEBOUNCE_MS = 800;
 
 interface WinDayEntryProps {
   winDate: string;

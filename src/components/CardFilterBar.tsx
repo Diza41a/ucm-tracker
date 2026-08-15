@@ -1,8 +1,9 @@
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors, spacing } from '@/src/constants/theme';
+import { useCardSubcategories } from '@/src/hooks/useCardSubcategories';
 import { useCardTypes } from '@/src/hooks/useCardTypes';
-import type { Story } from '@/src/types';
+import type { CardSubcategory, Story } from '@/src/types';
 import {
   type CardFilterState,
   type DifficultyFilterValue,
@@ -15,6 +16,8 @@ type CardFilterBarProps = {
   linkedStories: Story[];
   onChange: (patch: Partial<CardFilterState>) => void;
   showSearch?: boolean;
+  showSubcategories?: boolean;
+  subcategories?: CardSubcategory[];
 };
 
 export function CardFilterBar({
@@ -22,8 +25,12 @@ export function CardFilterBar({
   linkedStories,
   onChange,
   showSearch = true,
+  showSubcategories = false,
+  subcategories: subcategoriesProp,
 }: CardFilterBarProps) {
   const { data: cardTypes } = useCardTypes();
+  const { data: fetchedSubcategories } = useCardSubcategories();
+  const subcategories = subcategoriesProp ?? fetchedSubcategories;
 
   return (
     <View style={styles.wrap}>
@@ -75,6 +82,49 @@ export function CardFilterBar({
                 }>
                 <Text style={[styles.filterText, active ? { color: type.text_color } : null]}>
                   {type.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
+      {showSubcategories && subcategories && subcategories.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filters}>
+          <Text style={styles.filterLabel}>Sub</Text>
+          <Pressable
+            style={[
+              styles.filterChip,
+              filters.filterSubcategoryIds.length === 0 && styles.filterChipActive,
+            ]}
+            onPress={() => onChange({ filterSubcategoryIds: [] })}>
+            <Text
+              style={[
+                styles.filterText,
+                filters.filterSubcategoryIds.length === 0 && styles.filterTextActive,
+              ]}>
+              All
+            </Text>
+          </Pressable>
+          {subcategories.map((subcategory) => {
+            const active = filters.filterSubcategoryIds.includes(subcategory.id);
+            return (
+              <Pressable
+                key={subcategory.id}
+                style={[styles.filterChip, active && styles.filterChipActive]}
+                onPress={() =>
+                  onChange({
+                    filterSubcategoryIds: toggleFilterValue(
+                      filters.filterSubcategoryIds,
+                      subcategory.id
+                    ),
+                  })
+                }>
+                <Text style={[styles.filterText, active && styles.filterTextActive]}>
+                  {subcategory.name}
                 </Text>
               </Pressable>
             );

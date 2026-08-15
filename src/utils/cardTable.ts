@@ -5,6 +5,7 @@ import {
   DEFAULT_CARD_FILTER_STATE,
   filterCards,
 } from '@/src/utils/cardFilters';
+import { forEachCardTypeId, getCardTypeIds, getCardTypes, primaryCardTypeName } from '@/src/utils/cardTypes';
 
 export type CardTableGroupBy = 'none' | 'type' | 'subcategory';
 export type CardTableSubgroupBy = 'none' | 'type' | 'subcategory';
@@ -28,7 +29,10 @@ export type CardTableColumnWidths = Record<CardTableColumnKey, number>;
 export const CARD_TABLE_PAGE_SIZES = [25, 50, 100] as const;
 export type CardTablePageSize = (typeof CARD_TABLE_PAGE_SIZES)[number];
 
+export type CardPoolViewMode = 'list' | 'table';
+
 export type CardTableSettings = {
+  poolViewMode: CardPoolViewMode;
   groupBy: CardTableGroupBy;
   subgroupBy: CardTableSubgroupBy;
   sortLevels: CardTableSortLevel[];
@@ -54,6 +58,7 @@ export const CARD_TABLE_COLUMN_MIN_WIDTHS: CardTableColumnWidths = {
 };
 
 export const DEFAULT_CARD_TABLE_SETTINGS: CardTableSettings = {
+  poolViewMode: 'list',
   groupBy: 'none',
   subgroupBy: 'none',
   sortLevels: [],
@@ -122,6 +127,15 @@ export function cardTableGroupLabel(value: CardTableGroupBy) {
 export function cardTableSubgroupLabel(value: CardTableSubgroupBy) {
   return SUBGROUP_LABELS[value];
 }
+
+export const CARD_POOL_SORT_FIELDS: CardTableSortField[] = [
+  'action',
+  'difficulty',
+  'type',
+  'subcategory',
+  'updated_at',
+  'completed_once',
+];
 
 export function cardTableSortLabel(value: CardTableSortField) {
   return SORT_LABELS[value];
@@ -244,6 +258,7 @@ function filtersEqual(a: CardFilterState, b: CardFilterState) {
 
 export function hasCustomCardTableSettings(settings: CardTableSettings) {
   const defaults = DEFAULT_CARD_TABLE_SETTINGS;
+  if (settings.poolViewMode !== defaults.poolViewMode) return true;
   if (settings.groupBy !== defaults.groupBy || settings.subgroupBy !== defaults.subgroupBy) {
     return true;
   }
@@ -316,11 +331,8 @@ function compareCards(a: Card, b: Card, field: CardTableSortField, cardTypes: Ca
       return a.action.localeCompare(b.action);
     case 'difficulty':
       return a.difficulty - b.difficulty;
-    case 'type': {
-      const aName = cardTypes.find((type) => type.id === a.card_type_id)?.name ?? '';
-      const bName = cardTypes.find((type) => type.id === b.card_type_id)?.name ?? '';
-      return aName.localeCompare(bName);
-    }
+    case 'type':
+      return primaryCardTypeName(a, cardTypes).localeCompare(primaryCardTypeName(b, cardTypes));
     case 'subcategory': {
       const aName = primarySubcategoryLabel(a);
       const bName = primarySubcategoryLabel(b);
@@ -410,15 +422,17 @@ function appendTypeSections(
 ) {
   const cardsByType = new Map<string, Card[]>();
   cards.forEach((card) => {
-    const list = cardsByType.get(card.card_type_id) ?? [];
-    list.push(card);
-    cardsByType.set(card.card_type_id, list);
+    forEachCardTypeId(card, (typeId) => {
+      const list = cardsByType.get(typeId) ?? [];
+      if (!list.some((item) => item.id === card.id)) {
+        list.push(card);
+      }
+      cardsByType.set(typeId, list);
+    });
   });
 
   const orderedTypes = cardTypes.filter((type) => cardsByType.has(type.id));
-  const unassigned = cards.filter(
-    (card) => !orderedTypes.some((type) => type.id === card.card_type_id)
-  );
+  const unassigned = cards.filter((card) => getCardTypeIds(card).length === 0);
 
   orderedTypes.forEach((type) => {
     const typeCards = cardsByType.get(type.id);
@@ -549,9 +563,11 @@ function collectCardTypesForGrouping(cards: Card[], cardTypes: CardType[]): Card
   const byId = new Map<string, CardType>();
   cardTypes.forEach((type) => byId.set(type.id, type));
   cards.forEach((card) => {
-    if (card.card_type && !byId.has(card.card_type.id)) {
-      byId.set(card.card_type.id, card.card_type);
-    }
+    getCardTypes(card).forEach((type) => {
+      if (!byId.has(type.id)) {
+        byId.set(type.id, type);
+      }
+    });
   });
   return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -582,13 +598,16 @@ export function buildCardTableRows(
   if (settings.groupBy === 'type') {
     const cardsByType = new Map<string, Card[]>();
     sorted.forEach((card) => {
-      const list = cardsByType.get(card.card_type_id) ?? [];
-      list.push(card);
-      cardsByType.set(card.card_type_id, list);
+      forEachCardTypeId(card, (typeId) => {
+        const list = cardsByType.get(typeId) ?? [];
+        if (!list.some((item) => item.id === card.id)) {
+          list.push(card);
+        }
+        cardsByType.set(typeId, list);
+      });
     });
 
     const typesForGrouping = collectCardTypesForGrouping(sorted, cardTypes);
-    const coveredTypeIds = new Set(typesForGrouping.map((type) => type.id));
 
     typesForGrouping.forEach((type) => {
       const typeCards = cardsByType.get(type.id);
@@ -609,7 +628,7 @@ export function buildCardTableRows(
       }
     });
 
-    const unassigned = sorted.filter((card) => !coveredTypeIds.has(card.card_type_id));
+    const unassigned = sorted.filter((card) => getCardTypeIds(card).length === 0);
     if (unassigned.length) {
       rows.push({
         kind: 'group',

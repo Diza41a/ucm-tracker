@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
 import { Alert, Pressable, View } from 'react-native';
 
+import { HeaderBackButton } from '@/src/components/ui/HeaderBackButton';
 import { colors } from '@/src/constants/theme';
 import { stackScreenOptions, subScreenOptions } from '@/src/constants/stackOptions';
 import { useCardTypes } from '@/src/hooks/useCardTypes';
@@ -51,6 +52,7 @@ export default function CardsLayout() {
         name="index"
         options={{
           title: 'Card Pool',
+          headerLeft: () => <HeaderBackButton fallbackHref="/(tabs)/library" />,
           headerRight: () => <CardsHeaderActions />,
         }}
       />

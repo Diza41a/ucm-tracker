@@ -13,6 +13,7 @@ node_modules/
 # Native
 /android
 /ios
+*.apk
 *.jks
 *.p8
 *.p12

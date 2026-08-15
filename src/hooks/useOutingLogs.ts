@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 
 import { supabase } from '@/src/lib/supabase';
 import type { Card, OutingLog, OutingLogTask, Story } from '@/src/types';
-import { enrichCardsWithSubcategories } from '@/src/utils/cardRelations';
+import { enrichCardsWithSubcategories, enrichCardsWithTypes } from '@/src/utils/cardRelations';
 import { normalizeStoryFromDb } from '@/src/utils/story';
 
 export const outingLogKeys = {
@@ -30,7 +30,7 @@ async function attachRelationsToLog(log: OutingLog): Promise<OutingLog> {
     supabase.from('outing_log_stories').select('story:stories(*, story_story_tags(story_tag:story_tags(*)))').eq('log_id', log.id),
     supabase
       .from('outing_log_cards')
-      .select('card:cards(*, card_type:card_types(*))')
+      .select('card:cards(*)')
       .eq('log_id', log.id),
     supabase
       .from('outing_log_tasks')
@@ -55,7 +55,7 @@ async function attachRelationsToLog(log: OutingLog): Promise<OutingLog> {
       logStories
         ?.map((row) => normalizeStory(row.story))
         .filter((s): s is Story => s !== null) ?? [],
-    cards: await enrichCardsWithSubcategories(cards),
+    cards: await enrichCardsWithSubcategories(await enrichCardsWithTypes(cards)),
     tasks: (logTasks as OutingLogTask[]) ?? [],
   };
 }
@@ -268,6 +268,9 @@ export function useUpsertOutingLog() {
       }
 
       queryClient.invalidateQueries({ queryKey: outingLogKeys.starred });
+      void import('@/src/widgets/syncWidgetSnapshot').then(({ refreshAndroidWidgets }) =>
+        refreshAndroidWidgets()
+      );
     },
   });
 }
@@ -289,6 +292,9 @@ export function useDeleteOutingLog() {
       });
       queryClient.invalidateQueries({ queryKey: outingLogKeys.date(log_date) });
       queryClient.invalidateQueries({ queryKey: outingLogKeys.starred });
+      void import('@/src/widgets/syncWidgetSnapshot').then(({ refreshAndroidWidgets }) =>
+        refreshAndroidWidgets()
+      );
     },
   });
 }

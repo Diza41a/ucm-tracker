@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { HtmlContent } from '@/src/components/HtmlContent';
+import { LogTemplatePicker } from '@/src/components/LogTemplatePicker';
 import { RichTextEditor } from '@/src/components/RichTextEditor';
 import { StoryTagList } from '@/src/components/StoryTagList';
 import { StoryTagPicker } from '@/src/components/StoryTagPicker';
@@ -219,6 +220,7 @@ export default function StoryDetailScreen() {
               </FormField>
 
               <FormField icon="document-text-outline" title="Notes">
+                <LogTemplatePicker onSelect={setNotesHtml} />
                 <RichTextEditor
                   value={notesHtml}
                   onChange={setNotesHtml}

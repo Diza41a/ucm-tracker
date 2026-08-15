@@ -61,6 +61,9 @@ export function useCreateMonthlyCommitment() {
       queryClient.invalidateQueries({
         queryKey: commitmentKeys.month(data.year, data.month),
       });
+      void import('@/src/widgets/syncWidgetSnapshot').then(({ refreshAndroidWidgets }) =>
+        refreshAndroidWidgets()
+      );
     },
   });
 }

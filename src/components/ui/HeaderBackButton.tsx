@@ -12,10 +12,13 @@ function getWinsTabRoot(): Href {
 }
 
 const TAB_ROOTS: Record<string, Href> = {
-  stories: '/(tabs)/stories',
-  cards: '/(tabs)/cards',
+  stories: '/(tabs)/library',
+  cards: '/(tabs)/library',
   tracker: '/(tabs)/tracker',
-  settings: '/(tabs)/settings',
+  settings: '/(tabs)/more',
+  practice: '/(tabs)/more',
+  library: '/(tabs)/library',
+  more: '/(tabs)/more',
   wins: getWinsTabRoot(),
 };
 

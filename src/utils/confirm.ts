@@ -6,7 +6,9 @@ export function confirmDestructive(
   onConfirm: () => void | Promise<void>
 ) {
   const runConfirm = () => {
-    void Promise.resolve(onConfirm()).catch(() => {});
+    void Promise.resolve(onConfirm()).catch((error) => {
+      showAlert('Error', error instanceof Error ? error.message : 'Something went wrong');
+    });
   };
 
   if (Platform.OS === 'web') {

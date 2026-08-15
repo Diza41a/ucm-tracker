@@ -27,7 +27,6 @@ export function useRichTextEditorContent(value: string, onChange: (html: string)
     (html: string) => {
       skipExternalValueSync.current = true;
       contentRef.current = html;
-      setEditorHtml(html);
       onChange(html);
     },
     [onChange]

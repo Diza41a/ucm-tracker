@@ -1,28 +1,38 @@
-import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { fetchCardSubcategories } from '@/src/hooks/useCards';
+import { fetchCardSubcategories, fetchCardTypes } from '@/src/hooks/useCards';
 import { useAuth } from '@/src/hooks/useAuth';
 import { supabase } from '@/src/lib/supabase';
-import type { MonthlyCardPriority } from '@/src/types';
+import type { Card, MonthlyCardPriority } from '@/src/types';
+import { attachCardTypes } from '@/src/utils/cardTypes';
 
-async function enrichPrioritiesWithSubcategories(priorities: MonthlyCardPriority[]) {
+async function enrichPrioritiesWithCardRelations(priorities: MonthlyCardPriority[]) {
   const cardIds = priorities
     .map((priority) => priority.card?.id)
     .filter((id): id is string => !!id);
 
   if (cardIds.length === 0) return priorities;
 
-  const subcategoriesByCardId = await fetchCardSubcategories(cardIds);
+  const [subcategoriesByCardId, typesByCardId] = await Promise.all([
+    fetchCardSubcategories(cardIds),
+    fetchCardTypes(cardIds),
+  ]);
 
   return priorities.map((priority) => {
     if (!priority.card) return priority;
 
+    const subcategories = subcategoriesByCardId.get(priority.card.id) ?? [];
+    const cardTypes = typesByCardId.get(priority.card.id) ?? [];
+
     return {
       ...priority,
-      card: {
-        ...priority.card,
-        subcategories: subcategoriesByCardId.get(priority.card.id) ?? [],
-      },
+      card: attachCardTypes(
+        {
+          ...(priority.card as Card),
+          subcategories,
+        },
+        cardTypes
+      ),
     };
   });
 }
@@ -37,14 +47,13 @@ export function useMonthlyPriorities(year: number, month: number) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('monthly_card_priorities')
-        .select('*, card:cards(*, card_type:card_types(*))')
+        .select('*, card:cards(*)')
         .eq('year', year)
         .eq('month', month)
         .order('sort_order');
       if (error) throw error;
-      return enrichPrioritiesWithSubcategories(data as MonthlyCardPriority[]);
+      return enrichPrioritiesWithCardRelations(data as MonthlyCardPriority[]);
     },
-    placeholderData: keepPreviousData,
   });
 }
 
@@ -79,9 +88,9 @@ export function useSaveMonthlyPriorities() {
       const { data, error } = await supabase
         .from('monthly_card_priorities')
         .insert(rows)
-        .select('*, card:cards(*, card_type:card_types(*))');
+        .select('*, card:cards(*)');
       if (error) throw error;
-      return enrichPrioritiesWithSubcategories(data as MonthlyCardPriority[]);
+      return enrichPrioritiesWithCardRelations(data as MonthlyCardPriority[]);
     },
     onSuccess: (data, variables) => {
       queryClient.setQueryData(

@@ -20,6 +20,8 @@ import { useCardTypes } from '@/src/hooks/useCardTypes';
 import { useCardSubcategories } from '@/src/hooks/useCardSubcategories';
 import { useEnrichedCards } from '@/src/hooks/useEnrichedCards';
 import type { Card } from '@/src/types';
+import { cardHasType } from '@/src/utils/cardTypes';
+import { formatMonthYear } from '@/src/utils/display';
 import { moveListItem } from '@/src/utils/reorderList';
 
 interface MonthlyCardSelectionModalProps {
@@ -28,6 +30,8 @@ interface MonthlyCardSelectionModalProps {
   allCards: Card[];
   selectedCards: Card[];
   onChange: (cards: Card[]) => void;
+  year: number;
+  month: number;
 }
 
 export function MonthlyCardSelectionModal({
@@ -36,6 +40,8 @@ export function MonthlyCardSelectionModal({
   allCards,
   selectedCards,
   onChange,
+  year,
+  month,
 }: MonthlyCardSelectionModalProps) {
   const { data: cardTypes } = useCardTypes();
   const { data: subcategories } = useCardSubcategories();
@@ -49,7 +55,7 @@ export function MonthlyCardSelectionModal({
   const filteredPool = useMemo(() => {
     let pool = enrichedAllCards;
     if (filterTypeId) {
-      pool = pool.filter((card) => card.card_type_id === filterTypeId);
+      pool = pool.filter((card) => cardHasType(card, filterTypeId));
     }
     if (filterSubcategoryId) {
       pool = pool.filter((card) =>
@@ -135,7 +141,7 @@ export function MonthlyCardSelectionModal({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>Monthly focus cards</Text>
+          <Text style={styles.title}>Focus cards · {formatMonthYear(year, month)}</Text>
           <Pressable onPress={onClose} hitSlop={8}>
             <Ionicons name="close" size={28} color={colors.text} />
           </Pressable>

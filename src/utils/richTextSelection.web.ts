@@ -22,17 +22,3 @@ export function restoreEditorSelection(range: Range | null): boolean {
 export function getRangeText(range: Range | null): string {
   return range?.toString() ?? '';
 }
-
-function escapeHtml(text: string) {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-export function buildLinkHtml(title: string, url: string) {
-  const safeUrl = escapeHtml(url);
-  const safeTitle = escapeHtml(title || url);
-  return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeTitle}</a>`;
-}

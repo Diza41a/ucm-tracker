@@ -155,8 +155,44 @@ export function useDeleteLogTemplate() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: template, error: fetchError } = await supabase
+        .from('log_templates')
+        .select('is_default')
+        .eq('id', id)
+        .single();
+      if (fetchError) throw fetchError;
+
+      const { error: clearRefsError } = await supabase
+        .from('outing_logs')
+        .update({ template_id: null })
+        .eq('template_id', id)
+        .eq('user_id', user.id);
+      if (clearRefsError) throw clearRefsError;
+
       const { error } = await supabase.from('log_templates').delete().eq('id', id);
       if (error) throw error;
+
+      if (template.is_default) {
+        const { data: nextDefault, error: nextDefaultError } = await supabase
+          .from('log_templates')
+          .select('id')
+          .eq('user_id', user.id)
+          .order('name')
+          .limit(1)
+          .maybeSingle();
+        if (nextDefaultError) throw nextDefaultError;
+
+        if (nextDefault) {
+          const { error: promoteError } = await supabase
+            .from('log_templates')
+            .update({ is_default: true })
+            .eq('id', nextDefault.id);
+          if (promoteError) throw promoteError;
+        }
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: logTemplateKeys.all }),
   });

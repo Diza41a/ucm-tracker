@@ -1,5 +1,5 @@
 import { ErrorState, LoadingState } from '@/src/components/StateViews';
-import { CardTableView } from '@/src/components/CardTableView';
+import { CardPoolView } from '@/src/components/CardPoolView';
 import { useCardTypes } from '@/src/hooks/useCardTypes';
 import { useCards } from '@/src/hooks/useCards';
 import { View } from 'react-native';
@@ -19,7 +19,7 @@ export default function CardsListScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <CardTableView cards={cards ?? []} emptyMessage={emptyMessage} />
+      <CardPoolView cards={cards ?? []} emptyMessage={emptyMessage} />
     </View>
   );
 }

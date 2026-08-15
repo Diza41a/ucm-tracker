@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
+import { HeaderBackButton } from '@/src/components/ui/HeaderBackButton';
 import { colors } from '@/src/constants/theme';
 import { stackScreenOptions, subScreenOptions } from '@/src/constants/stackOptions';
-import { HeaderLogoButton } from '@/src/components/ui/HeaderLogoButton';
 
 export default function StoriesLayout() {
   return (
@@ -14,7 +14,7 @@ export default function StoriesLayout() {
         options={{
           title: 'Stories',
           headerBackVisible: false,
-          headerLeft: () => <HeaderLogoButton />,
+          headerLeft: () => <HeaderBackButton fallbackHref="/(tabs)/library" />,
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginRight: 8 }}>
               <Pressable onPress={() => router.push('/(tabs)/stories/tags')}>

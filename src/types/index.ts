@@ -45,6 +45,7 @@ export interface Card {
   created_at: string;
   updated_at: string;
   card_type?: CardType;
+  card_types?: CardType[];
   stories?: Story[];
   subcategories?: CardSubcategory[];
 }

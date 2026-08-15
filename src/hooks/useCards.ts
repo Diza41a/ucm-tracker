@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/src/lib/supabase';
-import type { Card, CardSubcategory, Story } from '@/src/types';
+import type { Card, CardSubcategory, CardType, Story } from '@/src/types';
+import { attachCardTypes } from '@/src/utils/cardTypes';
 import { normalizeStoryFromDb } from '@/src/utils/story';
 
 export const cardKeys = {
@@ -39,31 +40,75 @@ export async function fetchCardSubcategories(cardIds: string[]) {
   return byCardId;
 }
 
+export async function fetchCardTypes(cardIds: string[]) {
+  if (cardIds.length === 0) return new Map<string, CardType[]>();
+
+  const { data, error } = await supabase
+    .from('card_card_types')
+    .select('card_id, card_type:card_types(*)')
+    .in('card_id', cardIds);
+  if (error) throw error;
+
+  const byCardId = new Map<string, CardType[]>();
+  data?.forEach((row) => {
+    const raw = row.card_type;
+    const cardType = (Array.isArray(raw) ? raw[0] : raw) as CardType | null;
+    if (!cardType) return;
+    const existing = byCardId.get(row.card_id) ?? [];
+    existing.push(cardType);
+    byCardId.set(row.card_id, existing);
+  });
+
+  for (const types of byCardId.values()) {
+    types.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  return byCardId;
+}
+
+function withCardRelations(
+  card: Card,
+  subcategoriesByCardId: Map<string, CardSubcategory[]>,
+  typesByCardId: Map<string, CardType[]>
+): Card {
+  const subcategories = subcategoriesByCardId.get(card.id) ?? [];
+  const cardTypes = typesByCardId.get(card.id) ?? [];
+
+  return attachCardTypes(
+    {
+      ...card,
+      completed_once: card.completed_once ?? false,
+      subcategories,
+    },
+    cardTypes
+  );
+}
+
 async function fetchCardsWithRelations() {
   const { data: cards, error: cardsError } = await supabase
     .from('cards')
-    .select('*, card_type:card_types(*)')
+    .select('*')
     .order('updated_at', { ascending: false });
   if (cardsError) throw cardsError;
 
   const cardIds = (cards as Card[]).map((card) => card.id);
-  const [{ data: cardStories, error: csError }, subcategoriesByCardId] = await Promise.all([
-    supabase
-      .from('card_stories')
-      .select('card_id, story:stories(*, story_story_tags(story_tag:story_tags(*)))'),
-    fetchCardSubcategories(cardIds),
-  ]);
+  const [{ data: cardStories, error: csError }, subcategoriesByCardId, typesByCardId] =
+    await Promise.all([
+      supabase
+        .from('card_stories')
+        .select('card_id, story:stories(*, story_story_tags(story_tag:story_tags(*)))'),
+      fetchCardSubcategories(cardIds),
+      fetchCardTypes(cardIds),
+    ]);
   if (csError) throw csError;
 
   return (cards as Card[]).map((card) => ({
-    ...card,
-    completed_once: card.completed_once ?? false,
+    ...withCardRelations(card, subcategoriesByCardId, typesByCardId),
     stories:
       cardStories
         ?.filter((cs) => cs.card_id === card.id)
         .map((cs) => normalizeStory(cs.story))
         .filter((s): s is Story => s !== null) ?? [],
-    subcategories: subcategoriesByCardId.get(card.id) ?? [],
   }));
 }
 
@@ -80,7 +125,7 @@ export function useCard(id: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cards')
-        .select('*, card_type:card_types(*)')
+        .select('*')
         .eq('id', id)
         .single();
       if (error) throw error;
@@ -92,26 +137,38 @@ export function useCard(id: string) {
       if (csError) throw csError;
 
       const subcategoriesByCardId = await fetchCardSubcategories([id]);
+      const typesByCardId = await fetchCardTypes([id]);
 
       return {
-        ...data,
-        completed_once: data.completed_once ?? false,
+        ...withCardRelations(data as Card, subcategoriesByCardId, typesByCardId),
         stories:
           cardStories
             ?.map((cs) => normalizeStory(cs.story))
             .filter((s): s is Story => s !== null) ?? [],
-        subcategories: subcategoriesByCardId.get(id) ?? [],
       } as Card;
     },
     enabled: !!id && id !== 'new',
   });
 }
 
+async function syncCardTypeLinks(cardId: string, cardTypeIds: string[]) {
+  await supabase.from('card_card_types').delete().eq('card_id', cardId);
+  if (cardTypeIds.length === 0) return;
+
+  const { error } = await supabase.from('card_card_types').insert(
+    cardTypeIds.map((card_type_id) => ({
+      card_id: cardId,
+      card_type_id,
+    }))
+  );
+  if (error) throw error;
+}
+
 export function useCreateCard() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
-      card_type_id: string;
+      card_type_ids: string[];
       difficulty: number;
       action: string;
       function_purpose: string;
@@ -122,12 +179,13 @@ export function useCreateCard() {
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+      if (!input.card_type_ids.length) throw new Error('Select at least one card type.');
 
       const { data, error } = await supabase
         .from('cards')
         .insert({
           user_id: user.id,
-          card_type_id: input.card_type_id,
+          card_type_id: input.card_type_ids[0],
           difficulty: input.difficulty,
           action: input.action,
           function_purpose: input.function_purpose,
@@ -137,6 +195,8 @@ export function useCreateCard() {
         .select()
         .single();
       if (error) throw error;
+
+      await syncCardTypeLinks(data.id, input.card_type_ids);
 
       if (input.story_ids.length > 0) {
         const { error: linkError } = await supabase.from('card_stories').insert(
@@ -171,7 +231,7 @@ export function useUpdateCard() {
   return useMutation({
     mutationFn: async (input: {
       id: string;
-      card_type_id: string;
+      card_type_ids: string[];
       difficulty: number;
       action: string;
       function_purpose: string;
@@ -180,10 +240,12 @@ export function useUpdateCard() {
       subcategory_ids?: string[];
       completed_once?: boolean;
     }) => {
+      if (!input.card_type_ids.length) throw new Error('Select at least one card type.');
+
       const { data, error } = await supabase
         .from('cards')
         .update({
-          card_type_id: input.card_type_id,
+          card_type_id: input.card_type_ids[0],
           difficulty: input.difficulty,
           action: input.action,
           function_purpose: input.function_purpose,
@@ -195,6 +257,8 @@ export function useUpdateCard() {
         .select()
         .single();
       if (error) throw error;
+
+      await syncCardTypeLinks(input.id, input.card_type_ids);
 
       await supabase.from('card_stories').delete().eq('card_id', input.id);
       if (input.story_ids.length > 0) {
@@ -232,7 +296,7 @@ export function useUpdateCardTableFields() {
   return useMutation({
     mutationFn: async (input: {
       id: string;
-      card_type_id?: string;
+      card_type_ids?: string[];
       action?: string;
       difficulty?: number;
       subcategory_ids?: string[];
@@ -240,17 +304,26 @@ export function useUpdateCardTableFields() {
       const patch: Record<string, unknown> = {
         updated_at: new Date().toISOString(),
       };
-      if (input.card_type_id !== undefined) patch.card_type_id = input.card_type_id;
+      if (input.card_type_ids !== undefined) {
+        if (!input.card_type_ids.length) {
+          throw new Error('Select at least one card type.');
+        }
+        patch.card_type_id = input.card_type_ids[0];
+      }
       if (input.action !== undefined) patch.action = input.action;
       if (input.difficulty !== undefined) patch.difficulty = input.difficulty;
 
       if (
-        input.card_type_id !== undefined ||
+        input.card_type_ids !== undefined ||
         input.action !== undefined ||
         input.difficulty !== undefined
       ) {
         const { error } = await supabase.from('cards').update(patch).eq('id', input.id);
         if (error) throw error;
+      }
+
+      if (input.card_type_ids !== undefined) {
+        await syncCardTypeLinks(input.id, input.card_type_ids);
       }
 
       if (input.subcategory_ids !== undefined) {

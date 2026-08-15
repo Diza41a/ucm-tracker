@@ -96,7 +96,7 @@ function isTabNavigatorState(state: NavigationState | PartialNavigationState) {
     state.type === 'tab' ||
     (Array.isArray(routeNames) &&
       routeNames.includes('tracker') &&
-      routeNames.includes('settings'))
+      routeNames.includes('library'))
   );
 }
 

@@ -54,7 +54,12 @@ export default function CardTypesScreen() {
   const cardCountByType = useMemo(() => {
     const counts: Record<string, number> = {};
     cards?.forEach((card) => {
-      counts[card.card_type_id] = (counts[card.card_type_id] ?? 0) + 1;
+      card.card_types?.forEach((type) => {
+        counts[type.id] = (counts[type.id] ?? 0) + 1;
+      });
+      if (!card.card_types?.length && card.card_type_id) {
+        counts[card.card_type_id] = (counts[card.card_type_id] ?? 0) + 1;
+      }
     });
     return counts;
   }, [cards]);

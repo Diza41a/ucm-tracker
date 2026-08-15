@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { CardSubcategoryPicker } from '@/src/components/CardSubcategoryPicker';
+import { CardTypePicker } from '@/src/components/CardTypePicker';
 import { RichTextEditor } from '@/src/components/RichTextEditor';
 import { RichTextReadView } from '@/src/components/RichTextReadView';
 import { StorySelector } from '@/src/components/StorySelector';
@@ -35,6 +36,7 @@ import {
 } from '@/src/hooks/useCards';
 import { useStories } from '@/src/hooks/useStories';
 import { navigateBack } from '@/src/utils/navigation';
+import { getCardTypeIds } from '@/src/utils/cardTypes';
 
 export default function CardDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -49,7 +51,7 @@ export default function CardDetailScreen() {
   const deleteCard = useDeleteCard();
   const toggleCompletedOnce = useToggleCardCompletedOnce();
 
-  const [cardTypeId, setCardTypeId] = useState('');
+  const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState('5');
   const [action, setAction] = useState('');
   const [functionPurpose, setFunctionPurpose] = useState('');
@@ -63,7 +65,7 @@ export default function CardDetailScreen() {
 
   useEffect(() => {
     if (card) {
-      setCardTypeId(card.card_type_id);
+      setSelectedTypeIds(getCardTypeIds(card));
       setDifficulty(String(card.difficulty));
       setAction(card.action);
       setFunctionPurpose(card.function_purpose);
@@ -73,7 +75,7 @@ export default function CardDetailScreen() {
       setSelectedSubcategoryIds(card.subcategories?.map((subcategory) => subcategory.id) ?? []);
       setCompletedOnce(card.completed_once ?? false);
     } else if (isNew && cardTypes?.length) {
-      setCardTypeId(cardTypes[0].id);
+      setSelectedTypeIds([cardTypes[0].id]);
     }
   }, [card, cardTypes, isNew]);
 
@@ -100,8 +102,8 @@ export default function CardDetailScreen() {
   }, [completedOnce, id, isNew, toggleCompletedOnce]);
 
   const handleSave = async () => {
-    if (!cardTypeId) {
-      Alert.alert('Validation', 'Select a card type.');
+    if (!selectedTypeIds.length) {
+      Alert.alert('Validation', 'Select at least one card type.');
       return;
     }
     if (!action.trim()) {
@@ -121,7 +123,7 @@ export default function CardDetailScreen() {
 
     try {
       const payload = {
-        card_type_id: cardTypeId,
+        card_type_ids: selectedTypeIds,
         difficulty: diff,
         action: action.trim(),
         function_purpose: functionPurpose.trim(),
@@ -223,21 +225,8 @@ export default function CardDetailScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={formStyles.screenContent}>
-        <FormField icon="layers-outline" title="Card type" required>
-          <View style={formStyles.chipRow}>
-            {cardTypes?.map((type) => (
-              <Pressable
-                key={type.id}
-                style={[
-                  styles.typeChip,
-                  { backgroundColor: type.bg_color },
-                  cardTypeId === type.id && styles.typeChipSelected,
-                ]}
-                onPress={() => setCardTypeId(type.id)}>
-                <Text style={{ color: type.text_color, fontWeight: '600' }}>{type.name}</Text>
-              </Pressable>
-            ))}
-          </View>
+        <FormField icon="layers-outline" title="Card types" required>
+          <CardTypePicker value={selectedTypeIds} onChange={setSelectedTypeIds} />
         </FormField>
 
         <FormField icon="speedometer-outline" title="Difficulty (1-10)" required>
@@ -333,15 +322,5 @@ const styles = StyleSheet.create({
   },
   headerBtn: {
     marginLeft: 4,
-  },
-  typeChip: {
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  typeChipSelected: {
-    borderColor: colors.text,
   },
 });

@@ -34,6 +34,58 @@
           "resizeMode": "contain",
           "backgroundColor": "#0A0E14"
         }
+      ],
+      "expo-sqlite",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "WeeklyProgress",
+              "label": "UCM · Weekly progress",
+              "description": "Circular weekly outing progress with count and percent.",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "MonthlyProgress",
+              "label": "UCM · Monthly progress",
+              "description": "Circular monthly completion ring and outing count.",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "CombinedProgress",
+              "label": "UCM · Momentum",
+              "description": "Week and month rings plus a momentum reminder.",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "TodayOuting",
+              "label": "UCM · Today",
+              "description": "Outing day status, open tasks, and a tap-to-log prompt.",
+              "minWidth": "180dp",
+              "minHeight": "100dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
       ]
     ],
     "experiments": {

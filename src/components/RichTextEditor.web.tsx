@@ -13,11 +13,11 @@ import { colors, typography } from '@/src/constants/theme';
 import { useRichTextEditorContent } from '@/src/hooks/useRichTextEditorContent';
 import { useRichTextEditorExpand } from '@/src/hooks/useRichTextEditorExpand';
 import {
-  buildLinkHtml,
   captureEditorSelection,
   getRangeText,
   restoreEditorSelection,
 } from '@/src/utils/richTextSelection.web';
+import { buildLinkHtml } from '@/src/utils/richTextLink';
 
 interface RichTextEditorProps {
   value: string;
@@ -108,10 +108,13 @@ export function RichTextEditor({ value, onChange, placeholder, footer, showFoote
 
   useLayoutEffect(() => {
     if (!editorRef.current) return;
-    const isExternalSync = externalSyncGeneration !== lastExternalSyncGeneration.current;
+    if (externalSyncGeneration === lastExternalSyncGeneration.current) {
+      return;
+    }
+
     lastExternalSyncGeneration.current = externalSyncGeneration;
-    seedEditorNode(editorRef.current, editorHtml, isExternalSync);
-  }, [editorHtml, expanded, externalSyncGeneration]);
+    seedEditorNode(editorRef.current, editorHtml, true);
+  }, [editorHtml, externalSyncGeneration]);
 
   const handleAction = (action: RichTextToolbarAction) => {
     if (action === 'link') {

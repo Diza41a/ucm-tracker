@@ -32,6 +32,7 @@ function mergeSettings(raw: unknown): CardTableSettings {
     ...DEFAULT_CARD_TABLE_SETTINGS,
     ...parsed,
     ...group,
+    poolViewMode: parsed.poolViewMode === 'table' ? 'table' : 'list',
     pageSize: normalizePageSize(parsed.pageSize),
     sortLevels: mergeSortLevels(parsed.sortLevels, {
       sortField: parsed.sortField,
